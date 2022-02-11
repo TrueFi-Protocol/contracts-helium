@@ -16,4 +16,14 @@ interface IPeriodicLoans is IDebtInstrument {
         uint64 endDate;
         uint32 gracePeriod;
     }
+
+    function issueLoan(
+        IERC20 _underlyingToken,
+        uint256 _principal,
+        uint32 _periodCount,
+        uint256 _periodPayment,
+        uint64 _periodDuration,
+        address _recipient,
+        uint32 _gracePeriod
+    ) external returns (uint256);
 }

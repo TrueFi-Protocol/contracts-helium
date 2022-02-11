@@ -46,8 +46,6 @@ interface IBulletLoans is IDebtInstrument {
         address recipient
     ) external returns (uint256);
 
-    function startLoan(uint256 instrumentId) external;
-
     function markLoanAsDefaulted(uint256 instrumentId) external;
 
     function markLoanAsResolved(uint256 instrumentId) external;

@@ -7,4 +7,6 @@ interface IDebtInstrument is IFinancialInstrument {
     function endDate(uint256 instrumentId) external view returns (uint256);
 
     function repay(uint256 instrumentId, uint256 amount) external;
+
+    function startLoan(uint256 instrumentId) external;
 }

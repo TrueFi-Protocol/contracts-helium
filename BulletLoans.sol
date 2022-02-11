@@ -50,7 +50,7 @@ contract BulletLoans is ERC721Upgradeable, IBulletLoans {
         return instrumentId;
     }
 
-    function startLoan(uint256 instrumentId) external override {
+    function startLoan(uint256 instrumentId) external {
         loans[instrumentId].repaymentDate = uint64(block.timestamp) + loans[instrumentId].duration;
         _changeLoanStatus(instrumentId, BulletLoanStatus.Started);
     }

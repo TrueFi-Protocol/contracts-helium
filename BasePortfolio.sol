@@ -11,7 +11,7 @@ import {IBasePortfolio} from "./interfaces/IBasePortfolio.sol";
 import {IERC20WithDecimals} from "./interfaces/IERC20WithDecimals.sol";
 import {ITransferStrategy} from "./interfaces/ITransferStrategy.sol";
 
-contract BasePortfolio is IBasePortfolio, ERC20Upgradeable, InitializableManageable, AccessControlUpgradeable {
+abstract contract BasePortfolio is IBasePortfolio, ERC20Upgradeable, InitializableManageable, AccessControlUpgradeable {
     using SafeERC20 for IERC20;
 
     uint256 public endDate;
@@ -28,7 +28,7 @@ contract BasePortfolio is IBasePortfolio, ERC20Upgradeable, InitializableManagea
 
     constructor() InitializableManageable(msg.sender) {}
 
-    function initialize(uint256 _duration, IERC20 _underlyingToken) public virtual initializer {
+    function __BasePortfolio_init(uint256 _duration, IERC20 _underlyingToken) internal initializer {
         InitializableManageable.initialize(msg.sender);
         AccessControlUpgradeable.__AccessControl_init();
         ERC20Upgradeable.__ERC20_init("BasePortfolio", "BP");

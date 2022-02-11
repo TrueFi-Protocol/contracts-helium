@@ -82,4 +82,8 @@ contract PeriodicLoans is ERC721Upgradeable, InitializableManageable, IPeriodicL
         emit LoanIssued(id);
         return id;
     }
+
+    function startLoan(uint256) external pure {
+        revert("Not implemented");
+    }
 }
