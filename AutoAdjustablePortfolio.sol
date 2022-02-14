@@ -33,7 +33,7 @@ contract AutoAdjustablePortfolio is BasePortfolio {
     }
 
     function value() public view override returns (uint256) {
-        return underlyingToken.balanceOf(address(this)) + borrowedAmount + unincludedInterest();
+        return _value(borrowedAmount + unincludedInterest());
     }
 
     function repay(uint256 amount) public {
@@ -57,8 +57,20 @@ contract AutoAdjustablePortfolio is BasePortfolio {
         return (interestRate * borrowedAmount * (block.timestamp - lastInterestUpdateTime)) / YEAR / 10000;
     }
 
+    function utilization() public view returns (uint256) {
+        if (borrowedAmount == 0) {
+            return 0;
+        }
+        uint256 totalDebt = borrowedAmount + unincludedInterest();
+        return (totalDebt * 10000) / _value(totalDebt);
+    }
+
     function updateBorrowedAmount() internal {
         borrowedAmount += unincludedInterest();
         lastInterestUpdateTime = block.timestamp;
+    }
+
+    function _value(uint256 totalDebt) internal view returns (uint256) {
+        return underlyingToken.balanceOf(address(this)) + totalDebt;
     }
 }
