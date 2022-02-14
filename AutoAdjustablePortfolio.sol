@@ -18,7 +18,7 @@ contract AutoAdjustablePortfolio is BasePortfolio {
     uint256 private lastInterestUpdateTime;
 
     function initialize(uint256 _duration, IERC20 _underlyingToken) public initializer {
-        __BasePortfolio_init(_duration, _underlyingToken);
+        __BasePortfolio_init(_duration, _underlyingToken, msg.sender);
         borrower = msg.sender;
         interestRate = 1000; // 10%
     }

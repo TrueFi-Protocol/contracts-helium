@@ -15,8 +15,13 @@ import {IPeriodicLoans} from "./interfaces/IPeriodicLoans.sol";
 contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
     using SafeERC20 for IERC20;
 
-    function initialize(uint256 _duration, IERC20 _underlyingToken) external initializer {
-        __BasePortfolio_init(_duration, _underlyingToken);
+    function initialize(
+        uint256 _duration,
+        IERC20 _underlyingToken,
+        address _manager
+    ) external initializer {
+        __BasePortfolio_init(_duration, _underlyingToken, _manager);
+        __ERC20_init("FlexiblePortfolio", "FLEX");
     }
 
     function addBulletLoan(

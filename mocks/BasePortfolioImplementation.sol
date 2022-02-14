@@ -6,6 +6,7 @@ import {BasePortfolio} from "../BasePortfolio.sol";
 
 contract BasePortfolioImplementation is BasePortfolio {
     function initialize(uint256 _duration, IERC20 _underlyingToken) external initializer {
-        __BasePortfolio_init(_duration, _underlyingToken);
+        __BasePortfolio_init(_duration, _underlyingToken, msg.sender);
+        __ERC20_init("BasePortfolio", "BP");
     }
 }

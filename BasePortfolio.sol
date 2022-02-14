@@ -28,10 +28,13 @@ abstract contract BasePortfolio is IBasePortfolio, ERC20Upgradeable, Initializab
 
     constructor() InitializableManageable(msg.sender) {}
 
-    function __BasePortfolio_init(uint256 _duration, IERC20 _underlyingToken) internal initializer {
-        InitializableManageable.initialize(msg.sender);
+    function __BasePortfolio_init(
+        uint256 _duration,
+        IERC20 _underlyingToken,
+        address _manager
+    ) internal initializer {
+        InitializableManageable.initialize(_manager);
         AccessControlUpgradeable.__AccessControl_init();
-        ERC20Upgradeable.__ERC20_init("BasePortfolio", "BP");
 
         endDate = block.timestamp + _duration;
         underlyingToken = _underlyingToken;
