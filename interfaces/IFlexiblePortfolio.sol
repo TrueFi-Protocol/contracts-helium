@@ -5,6 +5,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IBasePortfolio} from "./IBasePortfolio.sol";
 import {IProtocolConfig} from "./IProtocolConfig.sol";
 import {IDebtInstrument} from "./IDebtInstrument.sol";
+import {IValuationStrategy} from "./IValuationStrategy.sol";
 
 interface IFlexiblePortfolio is IBasePortfolio {
     function initialize(
@@ -16,7 +17,7 @@ interface IFlexiblePortfolio is IBasePortfolio {
         address _depositStrategy,
         address _withdrawStrategy,
         address _transferStrategy,
-        address _valuationStrategy,
+        IValuationStrategy _valuationStrategy,
         IDebtInstrument[] calldata _allowedInstruments,
         uint256 _managerFee
     ) external;

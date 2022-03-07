@@ -7,9 +7,7 @@ import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {IFlexiblePortfolio} from "./interfaces/IFlexiblePortfolio.sol";
-import {IBulletLoans} from "./interfaces/IBulletLoans.sol";
 import {IDebtInstrument} from "./interfaces/IDebtInstrument.sol";
-import {IPeriodicLoans} from "./interfaces/IPeriodicLoans.sol";
 import {IBasePortfolio} from "./interfaces/IBasePortfolio.sol";
 import {IProtocolConfig} from "./interfaces/IProtocolConfig.sol";
 import {IValuationStrategy} from "./interfaces/IValuationStrategy.sol";
@@ -23,12 +21,12 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
     mapping(IDebtInstrument => bool) public isInstrumentAllowed;
 
     uint256 public maxValue;
-    address public valuationStrategy;
+    IValuationStrategy public valuationStrategy;
 
     event InstrumentAdded(IDebtInstrument instrument, uint256 instrumentId);
     event InstrumentFunded(IDebtInstrument instrument, uint256 instrumentId);
     event AllowedInstrumentChanged(IDebtInstrument instrument, bool isAllowed);
-    event ValuationStrategyChanged(address strategy);
+    event ValuationStrategyChanged(IValuationStrategy strategy);
     event InstrumentRepaid(IDebtInstrument instrument, uint256 instrumentId, uint256 amount);
     event ManagerFeeChanged(uint256 newManagerFee);
 
@@ -41,7 +39,7 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
         address _depositStrategy,
         address _withdrawStrategy,
         address _transferStrategy,
-        address _valuationStrategy,
+        IValuationStrategy _valuationStrategy,
         IDebtInstrument[] calldata _allowedInstruments,
         uint256 _managerFee
     ) external initializer {
@@ -83,7 +81,8 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
     function fundInstrument(IDebtInstrument instrument, uint256 instrumentId) public onlyManager {
         address borrower = instrument.recipient(instrumentId);
         uint256 principalAmount = instrument.principal(instrumentId);
-        instrument.startLoan(instrumentId);
+        instrument.start(instrumentId);
+        valuationStrategy.onInstrumentFunded(this, instrument, instrumentId);
         underlyingToken.safeTransfer(borrower, principalAmount);
         emit InstrumentFunded(instrument, instrumentId);
     }
@@ -105,6 +104,7 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
     ) external {
         require(instrument.recipient(instrumentId) == msg.sender, "FlexiblePortfolio: Not an instrument recipient");
         instrument.repay(instrumentId, amount);
+        valuationStrategy.onInstrumentUpdated(this, instrument, instrumentId);
         instrument.underlyingToken(instrumentId).safeTransferFrom(msg.sender, address(this), amount);
         emit InstrumentRepaid(instrument, instrumentId, amount);
     }
@@ -118,20 +118,24 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
         return IERC721Receiver.onERC721Received.selector;
     }
 
-    function setValuationStrategy(address _valuationStrategy) external onlyManager {
+    function setValuationStrategy(IValuationStrategy _valuationStrategy) external onlyManager {
         valuationStrategy = _valuationStrategy;
         emit ValuationStrategyChanged(_valuationStrategy);
     }
 
     function value() public view override(BasePortfolio, IBasePortfolio) returns (uint256) {
-        if (valuationStrategy == address(0)) {
+        if (address(valuationStrategy) == address(0)) {
             return 0;
         }
-        return IValuationStrategy(valuationStrategy).calculateValue(underlyingToken, address(this));
+        return valuationStrategy.calculateValue(this);
     }
 
     function setManagerFee(uint256 newManagerFee) external onlyManager {
         managerFee = newManagerFee;
         emit ManagerFeeChanged(newManagerFee);
+    }
+
+    function cancelInstrument(IDebtInstrument instrument, uint256 instrumentId) external onlyManager {
+        return instrument.cancel(instrumentId);
     }
 }

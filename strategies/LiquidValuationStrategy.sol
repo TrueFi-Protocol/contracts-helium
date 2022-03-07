@@ -4,13 +4,23 @@ pragma solidity 0.8.10;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IValuationStrategy} from "../interfaces/IValuationStrategy.sol";
 import {IDebtInstrument} from "../interfaces/IDebtInstrument.sol";
+import {IBasePortfolio} from "../interfaces/IBasePortfolio.sol";
 
 contract LiquidValuationStrategy is IValuationStrategy {
-    function onInstrumentIssued(IDebtInstrument implementation, uint256 instrumentId) external {}
+    function onInstrumentFunded(
+        IBasePortfolio,
+        IDebtInstrument,
+        uint256
+    ) external {}
 
-    function onInstrumentUpdated(IDebtInstrument implementation, uint256 instrumentId) external {}
+    function onInstrumentUpdated(
+        IBasePortfolio,
+        IDebtInstrument,
+        uint256
+    ) external {}
 
-    function calculateValue(IERC20 token, address portfolio) external view returns (uint256) {
-        return token.balanceOf(portfolio);
+    function calculateValue(IBasePortfolio portfolio) external view returns (uint256) {
+        IERC20 token = portfolio.underlyingToken();
+        return token.balanceOf(address(portfolio));
     }
 }

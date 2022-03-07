@@ -12,6 +12,7 @@ contract PeriodicLoans is ERC721Upgradeable, InitializableManageable, IPeriodicL
     event LoanIssued(uint256 instrumentId);
     event LoanStatusChanged(uint256 instrumentId, PeriodicLoanStatus newStatus);
     event Repaid(uint256 instrumentId, uint256 amount);
+    event Canceled(uint256 instrumentId);
 
     modifier onlyLoanOwner(uint256 instrumentId) {
         require(msg.sender == ownerOf(instrumentId), "PeriodicLoans: Not a loan owner");
@@ -116,7 +117,7 @@ contract PeriodicLoans is ERC721Upgradeable, InitializableManageable, IPeriodicL
         _changeLoanStatus(instrumentId, PeriodicLoanStatus.Accepted);
     }
 
-    function startLoan(uint256 instrumentId)
+    function start(uint256 instrumentId)
         external
         onlyLoanOwner(instrumentId)
         onlyLoanStatus(instrumentId, PeriodicLoanStatus.Accepted)
@@ -167,5 +168,14 @@ contract PeriodicLoans is ERC721Upgradeable, InitializableManageable, IPeriodicL
             amount += loan.principal;
         }
         return amount;
+    }
+
+    function cancel(uint256 instrumentId) external onlyLoanOwner(instrumentId) {
+        PeriodicLoanStatus _status = loans[instrumentId].status;
+        require(
+            _status == PeriodicLoanStatus.Created || _status == PeriodicLoanStatus.Accepted,
+            "PeriodicLoans: Unexpected loan status"
+        );
+        _changeLoanStatus(instrumentId, PeriodicLoanStatus.Canceled);
     }
 }

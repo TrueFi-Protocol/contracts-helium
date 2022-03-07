@@ -8,7 +8,8 @@ enum PeriodicLoanStatus {
     Created,
     Accepted,
     Started,
-    Repaid
+    Repaid,
+    Canceled
 }
 
 interface IPeriodicLoans is IDebtInstrument {

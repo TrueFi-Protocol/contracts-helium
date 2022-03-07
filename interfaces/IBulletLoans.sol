@@ -9,7 +9,8 @@ enum BulletLoanStatus {
     Started,
     FullyRepaid,
     Defaulted,
-    Resolved
+    Resolved,
+    Cancelled
 }
 
 interface IBulletLoans is IDebtInstrument {
@@ -49,4 +50,6 @@ interface IBulletLoans is IDebtInstrument {
     function markLoanAsDefaulted(uint256 instrumentId) external;
 
     function markLoanAsResolved(uint256 instrumentId) external;
+
+    function getStatus(uint256 instrumentId) external view returns (BulletLoanStatus);
 }

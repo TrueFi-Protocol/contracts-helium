@@ -50,13 +50,13 @@ contract BulletLoans is ERC721Upgradeable, IBulletLoans {
         return instrumentId;
     }
 
-    function startLoan(uint256 instrumentId) external {
+    function start(uint256 instrumentId) external {
         loans[instrumentId].repaymentDate = uint64(block.timestamp) + loans[instrumentId].duration;
         _changeLoanStatus(instrumentId, BulletLoanStatus.Started);
     }
 
     function repay(uint256 instrumentId, uint256 amount) external override returns (uint256 principalRepaid, uint256 interestRepaid) {
-        require(msg.sender == ownerOf(instrumentId), "PeriodicLoans: Not a loan owner");
+        require(msg.sender == ownerOf(instrumentId), "BulletLoans: Caller is not the owner of the loan");
         require(getStatus(instrumentId) == BulletLoanStatus.Started, "BulletLoans: Can only repay started loan");
         LoanMetadata storage loan = loans[instrumentId];
         loan.amountRepaid += amount;
@@ -132,5 +132,12 @@ contract BulletLoans is ERC721Upgradeable, IBulletLoans {
 
     function saturatingSub(uint256 a, uint256 b) private pure returns (uint256) {
         return a > b ? a - b : 0;
+    }
+
+    function cancel(uint256 instrumentId) external {
+        require(msg.sender == ownerOf(instrumentId), "BulletLoans: Caller is not the owner of the loan");
+        require(loans[instrumentId].status == BulletLoanStatus.Created, "BulletLoans: Only created loan can be cancelled");
+        _changeLoanStatus(instrumentId, BulletLoanStatus.Cancelled);
+        emit LoanStatusChanged(instrumentId, BulletLoanStatus.Cancelled);
     }
 }
