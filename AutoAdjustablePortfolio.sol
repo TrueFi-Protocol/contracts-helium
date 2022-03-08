@@ -56,6 +56,7 @@ contract AutoAdjustablePortfolio is IAutoAdjustablePortfolio, BasePortfolio {
 
     function borrow(uint256 amount) public {
         require(msg.sender == borrower, "AutoAdjustablePortfolio: Unauthorized borrower");
+        require(block.timestamp < endDate, "AutoAdjustablePortfolio: Pool end date has elapsed");
 
         borrowedAmount += amount + unincludedInterest();
         lastUtilizationUpdateTime = block.timestamp;
@@ -83,6 +84,7 @@ contract AutoAdjustablePortfolio is IAutoAdjustablePortfolio, BasePortfolio {
     }
 
     function deposit(uint256 amount, address sender) public override {
+        require(block.timestamp < endDate, "AutoAdjustablePortfolio: Pool end date has elapsed");
         require((value() + amount) <= maxSize, "AutoAdjustablePortfolio: Deposit would cause pool to exceed max size");
         updateBorrowedAmount();
         super.deposit(amount, sender);
