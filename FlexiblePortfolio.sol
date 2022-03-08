@@ -15,6 +15,8 @@ import {IValuationStrategy} from "./interfaces/IValuationStrategy.sol";
 import {BasePortfolio} from "./BasePortfolio.sol";
 
 contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
+    uint256 private constant PRECISION = 1e30;
+
     using SafeERC20 for IERC20;
     using Address for address;
 
@@ -22,6 +24,10 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
 
     uint256 public maxValue;
     IValuationStrategy public valuationStrategy;
+
+    uint256 public cumulativeInterestPerShare;
+    mapping(address => uint256) public previousCumulatedInterestPerShare;
+    mapping(address => uint256) public claimableInterest;
 
     event InstrumentAdded(IDebtInstrument instrument, uint256 instrumentId);
     event InstrumentFunded(IDebtInstrument instrument, uint256 instrumentId);
@@ -89,6 +95,8 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
 
     function deposit(uint256 amount, address sender) public override(IBasePortfolio, BasePortfolio) {
         require(amount + value() <= maxValue, "FlexiblePortfolio: Portfolio is full");
+        _updateClaimableInterest(sender);
+
         uint256 managersPart = (amount * managerFee) / 10000;
         uint256 protocolsPart = (amount * protocolConfig.protocolFee()) / 10000;
         uint256 amountToDeposit = amount - managersPart - protocolsPart;
@@ -97,14 +105,21 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
         super.deposit(amountToDeposit, sender);
     }
 
+    function withdraw(uint256 shares, address sender) public override(IBasePortfolio, BasePortfolio) {
+        _updateClaimableInterest(sender);
+        super.withdraw(shares, sender);
+    }
+
     function repay(
         IDebtInstrument instrument,
         uint256 instrumentId,
         uint256 amount
     ) external {
         require(instrument.recipient(instrumentId) == msg.sender, "FlexiblePortfolio: Not an instrument recipient");
-        instrument.repay(instrumentId, amount);
+        (, uint256 interestRepaid) = instrument.repay(instrumentId, amount);
         valuationStrategy.onInstrumentUpdated(this, instrument, instrumentId);
+
+        _updateCumulativeInterest(interestRepaid);
         instrument.underlyingToken(instrumentId).safeTransferFrom(msg.sender, address(this), amount);
         emit InstrumentRepaid(instrument, instrumentId, amount);
     }
@@ -123,6 +138,13 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
         emit ValuationStrategyChanged(_valuationStrategy);
     }
 
+    function withdrawableInterest(address lender) public view returns (uint256) {
+        return
+            claimableInterest[lender] +
+            (balanceOf(lender) * (cumulativeInterestPerShare - previousCumulatedInterestPerShare[lender])) /
+            PRECISION;
+    }
+
     function value() public view override(BasePortfolio, IBasePortfolio) returns (uint256) {
         if (address(valuationStrategy) == address(0)) {
             return 0;
@@ -137,5 +159,16 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
 
     function cancelInstrument(IDebtInstrument instrument, uint256 instrumentId) external onlyManager {
         return instrument.cancel(instrumentId);
+    }
+
+    function _updateCumulativeInterest(uint256 interestRepaid) internal {
+        if (interestRepaid > 0 && totalSupply() > 0) {
+            cumulativeInterestPerShare += (interestRepaid * PRECISION) / totalSupply();
+        }
+    }
+
+    function _updateClaimableInterest(address lender) internal {
+        claimableInterest[lender] = withdrawableInterest(lender);
+        previousCumulatedInterestPerShare[lender] = cumulativeInterestPerShare;
     }
 }
