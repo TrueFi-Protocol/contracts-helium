@@ -23,6 +23,8 @@ contract MockLoans is ERC721Upgradeable, IDebtInstrument {
         return 0;
     }
 
+    function updateInstrument() external pure {}
+
     function endDate(uint256) external pure returns (uint256) {
         return 0;
     }
@@ -34,6 +36,10 @@ contract MockLoans is ERC721Upgradeable, IDebtInstrument {
     function start(uint256) external pure {}
 
     function cancel(uint256) external pure {}
+
+    function updateInstrumentSelector() external pure returns (bytes4) {
+        return this.updateInstrument.selector;
+    }
 
     function issueInstrumentSelector() external pure returns (bytes4) {
         return this.issueInstrument.selector;

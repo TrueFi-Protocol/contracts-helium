@@ -52,4 +52,6 @@ interface IBulletLoans is IDebtInstrument {
     function markLoanAsResolved(uint256 instrumentId) external;
 
     function getStatus(uint256 instrumentId) external view returns (BulletLoanStatus);
+
+    function updateInstrument() external;
 }

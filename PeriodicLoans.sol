@@ -11,6 +11,7 @@ contract PeriodicLoans is ERC721Upgradeable, InitializableManageable, IPeriodicL
 
     event LoanIssued(uint256 instrumentId);
     event LoanStatusChanged(uint256 instrumentId, PeriodicLoanStatus newStatus);
+    event GracePeriodUpdated(uint256 instrumentId, uint32 newGracePeriod);
     event Repaid(uint256 instrumentId, uint256 amount);
     event Canceled(uint256 instrumentId);
 
@@ -61,6 +62,10 @@ contract PeriodicLoans is ERC721Upgradeable, InitializableManageable, IPeriodicL
 
     function issueInstrumentSelector() external pure returns (bytes4) {
         return this.issueLoan.selector;
+    }
+
+    function updateInstrumentSelector() external pure returns (bytes4) {
+        return this.updateInstrument.selector;
     }
 
     function currentPeriodEndDate(uint256 instrumentId) external view returns (uint40) {
@@ -177,5 +182,14 @@ contract PeriodicLoans is ERC721Upgradeable, InitializableManageable, IPeriodicL
             "PeriodicLoans: Unexpected loan status"
         );
         _changeLoanStatus(instrumentId, PeriodicLoanStatus.Canceled);
+    }
+
+    function updateInstrument(uint256 instrumentId, uint32 newGracePeriod)
+        external
+        onlyLoanOwner(instrumentId)
+        onlyLoanStatus(instrumentId, PeriodicLoanStatus.Started)
+    {
+        loans[instrumentId].gracePeriod = newGracePeriod;
+        emit GracePeriodUpdated(instrumentId, newGracePeriod);
     }
 }

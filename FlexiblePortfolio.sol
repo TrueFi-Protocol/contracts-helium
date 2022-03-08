@@ -31,6 +31,7 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
 
     event InstrumentAdded(IDebtInstrument instrument, uint256 instrumentId);
     event InstrumentFunded(IDebtInstrument instrument, uint256 instrumentId);
+    event InstrumentUpdated(IDebtInstrument instrument);
     event AllowedInstrumentChanged(IDebtInstrument instrument, bool isAllowed);
     event ValuationStrategyChanged(IValuationStrategy strategy);
     event InstrumentRepaid(IDebtInstrument instrument, uint256 instrumentId, uint256 amount);
@@ -91,6 +92,14 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
         valuationStrategy.onInstrumentFunded(this, instrument, instrumentId);
         underlyingToken.safeTransfer(borrower, principalAmount);
         emit InstrumentFunded(instrument, instrumentId);
+    }
+
+    function updateInstrument(IDebtInstrument instrument, bytes calldata updateInstrumentCalldata) external onlyManager {
+        require(isInstrumentAllowed[instrument], "FlexiblePortfolio: Instrument is not allowed");
+        require(instrument.updateInstrumentSelector() == bytes4(updateInstrumentCalldata), "FlexiblePortfolio: Invalid function call");
+
+        address(instrument).functionCall(updateInstrumentCalldata);
+        emit InstrumentUpdated(instrument);
     }
 
     function deposit(uint256 amount, address sender) public override(IBasePortfolio, BasePortfolio) {

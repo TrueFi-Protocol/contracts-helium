@@ -37,4 +37,6 @@ interface IPeriodicLoans is IDebtInstrument {
         address _recipient,
         uint32 _gracePeriod
     ) external returns (uint256);
+
+    function updateInstrument(uint256 _instrumentId, uint32 _gracePeriod) external;
 }

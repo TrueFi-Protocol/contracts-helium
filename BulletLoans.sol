@@ -115,6 +115,10 @@ contract BulletLoans is ERC721Upgradeable, IBulletLoans {
         return this.createLoan.selector;
     }
 
+    function updateInstrumentSelector() external pure returns (bytes4) {
+        return this.updateInstrument.selector;
+    }
+
     function unpaidDebt(uint256 instrumentId) external view returns (uint256) {
         LoanMetadata memory loan = loans[instrumentId];
         return saturatingSub(loan.totalDebt, loan.amountRepaid);
@@ -140,4 +144,6 @@ contract BulletLoans is ERC721Upgradeable, IBulletLoans {
         _changeLoanStatus(instrumentId, BulletLoanStatus.Cancelled);
         emit LoanStatusChanged(instrumentId, BulletLoanStatus.Cancelled);
     }
+
+    function updateInstrument() external {}
 }
