@@ -167,7 +167,8 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
     }
 
     function cancelInstrument(IDebtInstrument instrument, uint256 instrumentId) external onlyManager {
-        return instrument.cancel(instrumentId);
+        instrument.cancel(instrumentId);
+        valuationStrategy.onInstrumentUpdated(this, instrument, instrumentId);
     }
 
     function _updateCumulativeInterest(uint256 interestRepaid) internal {

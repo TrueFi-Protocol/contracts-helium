@@ -28,6 +28,24 @@ interface IPeriodicLoans is IDebtInstrument {
         IERC20 underlyingToken;
     }
 
+    function loans(uint256 id)
+        external
+        view
+        returns (
+            uint256,
+            uint256,
+            uint256,
+            PeriodicLoanStatus,
+            uint16,
+            uint32,
+            uint40,
+            address,
+            uint16,
+            uint32,
+            uint40,
+            IERC20
+        );
+
     function issueLoan(
         IERC20 _underlyingToken,
         uint256 _principal,
@@ -39,4 +57,6 @@ interface IPeriodicLoans is IDebtInstrument {
     ) external returns (uint256);
 
     function updateInstrument(uint256 _instrumentId, uint32 _gracePeriod) external;
+
+    function status(uint256 instrumentId) external view returns (PeriodicLoanStatus);
 }
