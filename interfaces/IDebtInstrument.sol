@@ -12,6 +12,8 @@ interface IDebtInstrument is IFinancialInstrument {
 
     function cancel(uint256 instrumentId) external;
 
+    function markAsDefaulted(uint256 instrumentId) external;
+
     function issueInstrumentSelector() external pure returns (bytes4);
 
     function updateInstrumentSelector() external pure returns (bytes4);

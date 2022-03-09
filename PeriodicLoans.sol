@@ -83,7 +83,8 @@ contract PeriodicLoans is ERC721Upgradeable, InitializableManageable, IPeriodicL
         uint256 _periodPayment,
         uint32 _periodDuration,
         address _recipient,
-        uint32 _gracePeriod
+        uint32 _gracePeriod,
+        bool _canBeRepaidAfterDefault
     ) external returns (uint256) {
         require(_recipient != address(0), "PeriodicLoans: recipient cannot be the zero address");
 
@@ -104,6 +105,7 @@ contract PeriodicLoans is ERC721Upgradeable, InitializableManageable, IPeriodicL
                 _periodDuration,
                 0, // currentPeriodEndDate
                 _recipient,
+                _canBeRepaidAfterDefault,
                 0, // periodsRepaid
                 _gracePeriod,
                 0, // endDate,
@@ -146,10 +148,10 @@ contract PeriodicLoans is ERC721Upgradeable, InitializableManageable, IPeriodicL
         onlyLoanOwner(instrumentId)
         returns (uint256 principalRepaid, uint256 interestRepaid)
     {
+        require(_canBeRepaid(instrumentId), "PeriodicLoans: This loan cannot be repaid");
         LoanMetadata storage loan = loans[instrumentId];
         uint16 _periodsRepaid = loan.periodsRepaid;
         uint16 _periodCount = loan.periodCount;
-        require(_periodsRepaid < _periodCount, "PeriodicLoans: Loan is already repaid");
 
         interestRepaid = loan.periodPayment;
         if (_periodsRepaid == _periodCount - 1) {
@@ -184,6 +186,18 @@ contract PeriodicLoans is ERC721Upgradeable, InitializableManageable, IPeriodicL
         _changeLoanStatus(instrumentId, PeriodicLoanStatus.Canceled);
     }
 
+    function markAsDefaulted(uint256 instrumentId)
+        external
+        onlyLoanOwner(instrumentId)
+        onlyLoanStatus(instrumentId, PeriodicLoanStatus.Started)
+    {
+        require(
+            loans[instrumentId].currentPeriodEndDate + loans[instrumentId].gracePeriod < block.timestamp,
+            "PeriodicLoans: This loan cannot be defaulted"
+        );
+        _changeLoanStatus(instrumentId, PeriodicLoanStatus.Defaulted);
+    }
+
     function updateInstrument(uint256 instrumentId, uint32 newGracePeriod)
         external
         onlyLoanOwner(instrumentId)
@@ -191,5 +205,17 @@ contract PeriodicLoans is ERC721Upgradeable, InitializableManageable, IPeriodicL
     {
         loans[instrumentId].gracePeriod = newGracePeriod;
         emit GracePeriodUpdated(instrumentId, newGracePeriod);
+    }
+
+    function _canBeRepaid(uint256 instrumentId) internal view returns (bool) {
+        LoanMetadata storage loan = loans[instrumentId];
+
+        if (loan.status == PeriodicLoanStatus.Started) {
+            return true;
+        }
+        if (loan.status == PeriodicLoanStatus.Defaulted && loan.canBeRepaidAfterDefault) {
+            return true;
+        }
+        return false;
     }
 }

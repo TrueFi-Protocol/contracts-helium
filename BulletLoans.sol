@@ -71,7 +71,7 @@ contract BulletLoans is ERC721Upgradeable, IBulletLoans {
         return (amount, 0);
     }
 
-    function markLoanAsDefaulted(uint256 instrumentId) external override {
+    function markAsDefaulted(uint256 instrumentId) external override {
         require(ownerOf(instrumentId) == msg.sender, "BulletLoans: Caller is not the owner of the loan");
         BulletLoanStatus status = loans[instrumentId].status;
         require(

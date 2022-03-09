@@ -9,7 +9,8 @@ enum PeriodicLoanStatus {
     Accepted,
     Started,
     Repaid,
-    Canceled
+    Canceled,
+    Defaulted
 }
 
 interface IPeriodicLoans is IDebtInstrument {
@@ -22,6 +23,7 @@ interface IPeriodicLoans is IDebtInstrument {
         uint32 periodDuration;
         uint40 currentPeriodEndDate;
         address recipient;
+        bool canBeRepaidAfterDefault;
         uint16 periodsRepaid;
         uint32 gracePeriod;
         uint40 endDate;
@@ -40,6 +42,7 @@ interface IPeriodicLoans is IDebtInstrument {
             uint32,
             uint40,
             address,
+            bool,
             uint16,
             uint32,
             uint40,
@@ -53,7 +56,8 @@ interface IPeriodicLoans is IDebtInstrument {
         uint256 _periodPayment,
         uint32 _periodDuration,
         address _recipient,
-        uint32 _gracePeriod
+        uint32 _gracePeriod,
+        bool _canBeRepaidAfterDefault
     ) external returns (uint256);
 
     function updateInstrument(uint256 _instrumentId, uint32 _gracePeriod) external;

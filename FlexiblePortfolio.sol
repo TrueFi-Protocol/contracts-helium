@@ -171,6 +171,10 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
         valuationStrategy.onInstrumentUpdated(this, instrument, instrumentId);
     }
 
+    function markInstrumentAsDefaulted(IDebtInstrument instrument, uint256 instrumentId) external onlyManager {
+        return instrument.markAsDefaulted(instrumentId);
+    }
+
     function _updateCumulativeInterest(uint256 interestRepaid) internal {
         if (interestRepaid > 0 && totalSupply() > 0) {
             cumulativeInterestPerShare += (interestRepaid * PRECISION) / totalSupply();
