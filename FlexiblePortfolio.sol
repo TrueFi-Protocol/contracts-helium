@@ -119,15 +119,23 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
 
     function withdraw(uint256 shares, address sender) public override(IBasePortfolio, BasePortfolio) {
         _updateClaimableInterest(sender);
+        _claimInterest(sender);
         super.withdraw(shares, sender);
     }
 
     function claimInterest() external {
-        uint256 amount = withdrawableInterest(msg.sender);
-        claimedInterest[msg.sender] += amount;
+        _claimInterest(msg.sender);
+    }
+
+    function _claimInterest(address lender) internal {
+        uint256 amount = withdrawableInterest(lender);
+        if (amount == 0) {
+            return;
+        }
+        claimedInterest[lender] += amount;
         totalUnclaimedInterest -= amount;
-        underlyingToken.safeTransfer(msg.sender, amount);
-        emit InterestClaimed(msg.sender, amount);
+        underlyingToken.safeTransfer(lender, amount);
+        emit InterestClaimed(lender, amount);
     }
 
     function repay(
