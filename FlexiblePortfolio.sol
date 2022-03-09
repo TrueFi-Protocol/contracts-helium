@@ -28,6 +28,8 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
     uint256 public cumulativeInterestPerShare;
     mapping(address => uint256) public previousCumulatedInterestPerShare;
     mapping(address => uint256) public claimableInterest;
+    mapping(address => uint256) public claimedInterest;
+    uint256 totalUnclaimedInterest;
 
     event InstrumentAdded(IDebtInstrument instrument, uint256 instrumentId);
     event InstrumentFunded(IDebtInstrument instrument, uint256 instrumentId);
@@ -36,6 +38,7 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
     event ValuationStrategyChanged(IValuationStrategy strategy);
     event InstrumentRepaid(IDebtInstrument instrument, uint256 instrumentId, uint256 amount);
     event ManagerFeeChanged(uint256 newManagerFee);
+    event InterestClaimed(address lender, uint256 amount);
 
     function initialize(
         IProtocolConfig _protocolConfig,
@@ -119,6 +122,14 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
         super.withdraw(shares, sender);
     }
 
+    function claimInterest() external {
+        uint256 amount = withdrawableInterest(msg.sender);
+        claimedInterest[msg.sender] += amount;
+        totalUnclaimedInterest -= amount;
+        underlyingToken.safeTransfer(msg.sender, amount);
+        emit InterestClaimed(msg.sender, amount);
+    }
+
     function repay(
         IDebtInstrument instrument,
         uint256 instrumentId,
@@ -151,14 +162,15 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
         return
             claimableInterest[lender] +
             (balanceOf(lender) * (cumulativeInterestPerShare - previousCumulatedInterestPerShare[lender])) /
-            PRECISION;
+            PRECISION -
+            claimedInterest[lender];
     }
 
     function value() public view override(BasePortfolio, IBasePortfolio) returns (uint256) {
         if (address(valuationStrategy) == address(0)) {
             return 0;
         }
-        return valuationStrategy.calculateValue(this);
+        return valuationStrategy.calculateValue(this) - totalUnclaimedInterest;
     }
 
     function setManagerFee(uint256 newManagerFee) external onlyManager {
@@ -176,6 +188,7 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
     }
 
     function _updateCumulativeInterest(uint256 interestRepaid) internal {
+        totalUnclaimedInterest += interestRepaid;
         if (interestRepaid > 0 && totalSupply() > 0) {
             cumulativeInterestPerShare += (interestRepaid * PRECISION) / totalSupply();
         }

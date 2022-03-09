@@ -6,7 +6,7 @@ import {ERC721Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC72
 import {IDebtInstrument} from "../interfaces/IDebtInstrument.sol";
 
 contract MockLoans is ERC721Upgradeable, IDebtInstrument {
-    uint256 returnedRepaidInterest;
+    uint256 public returnedRepaidInterest;
     IERC20 _underlyingToken;
     address borrower;
 
