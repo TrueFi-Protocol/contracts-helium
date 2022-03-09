@@ -16,15 +16,18 @@ contract DaoGovernor is
     GovernorVotesQuorumFraction,
     GovernorTimelockControl
 {
-    constructor(IVotes _token, TimelockController _timelock)
+    constructor(
+        uint256 _votingDelay,
+        uint256 _votingPeriod,
+        uint256 _proposalThreshold,
+        IVotes _token,
+        uint256 _quorumFraction,
+        TimelockController _timelock
+    )
         Governor("DaoGovernor")
-        GovernorSettings(
-            1, /* 1 block */
-            14, /* 1 week */
-            0
-        )
+        GovernorSettings(_votingDelay, _votingPeriod, _proposalThreshold)
         GovernorVotes(_token)
-        GovernorVotesQuorumFraction(4)
+        GovernorVotesQuorumFraction(_quorumFraction)
         GovernorTimelockControl(_timelock)
     {}
 
