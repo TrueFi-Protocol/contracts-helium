@@ -16,12 +16,13 @@ contract AutoAdjustablePortfolio is IAutoAdjustablePortfolio, BasePortfolio {
     uint256 public maxSize;
     uint256 public borrowedAmount;
     address public borrower;
-
     InterestRateParameters public interestRateParameters;
-
     uint256 private lastUtilizationUpdateTime;
-
     uint256 public claimableProtocolFees;
+
+    event Borrowed(uint256 amount);
+
+    event Repaid(uint256 amount);
 
     function initialize(
         IProtocolConfig _protocolConfig,
@@ -62,6 +63,8 @@ contract AutoAdjustablePortfolio is IAutoAdjustablePortfolio, BasePortfolio {
         lastUtilizationUpdateTime = block.timestamp;
 
         underlyingToken.safeTransfer(borrower, amount);
+
+        emit Borrowed(amount);
     }
 
     function value() public view override returns (uint256) {
@@ -73,6 +76,8 @@ contract AutoAdjustablePortfolio is IAutoAdjustablePortfolio, BasePortfolio {
         lastUtilizationUpdateTime = block.timestamp;
 
         underlyingToken.safeTransferFrom(borrower, address(this), amount);
+
+        emit Repaid(amount);
     }
 
     function repayInFull() external {
