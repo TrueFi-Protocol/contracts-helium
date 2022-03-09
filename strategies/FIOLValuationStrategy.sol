@@ -3,13 +3,13 @@ pragma solidity 0.8.10;
 
 import {IValuationStrategy} from "../interfaces/IValuationStrategy.sol";
 import {IDebtInstrument} from "../interfaces/IDebtInstrument.sol";
-import {IPeriodicLoans, PeriodicLoanStatus} from "../interfaces/IPeriodicLoans.sol";
+import {IFixedInterestOnlyLoans, FixedInterestOnlyLoanStatus} from "../interfaces/IFixedInterestOnlyLoans.sol";
 import {InitializableManageable} from "../access/InitializableManageable.sol";
 import {IBasePortfolio} from "../interfaces/IBasePortfolio.sol";
 
 contract FIOLValuationStrategy is InitializableManageable, IValuationStrategy {
     address public parentStrategy;
-    IPeriodicLoans public fiolAddress;
+    IFixedInterestOnlyLoans public fiolAddress;
     mapping(IBasePortfolio => uint256) public value;
     mapping(IBasePortfolio => mapping(uint256 => bool)) public activeLoans;
 
@@ -25,7 +25,7 @@ contract FIOLValuationStrategy is InitializableManageable, IValuationStrategy {
 
     constructor() InitializableManageable(msg.sender) {}
 
-    function initialize(IPeriodicLoans _fiolAddress, address _parentStrategy) external initializer {
+    function initialize(IFixedInterestOnlyLoans _fiolAddress, address _parentStrategy) external initializer {
         InitializableManageable.initialize(msg.sender);
         fiolAddress = _fiolAddress;
         parentStrategy = _parentStrategy;
@@ -60,8 +60,8 @@ contract FIOLValuationStrategy is InitializableManageable, IValuationStrategy {
         if (!isActive) {
             return;
         }
-        PeriodicLoanStatus status = IPeriodicLoans(address(instrument)).status(instrumentId);
-        if (status != PeriodicLoanStatus.Started) {
+        FixedInterestOnlyLoanStatus status = IFixedInterestOnlyLoans(address(instrument)).status(instrumentId);
+        if (status != FixedInterestOnlyLoanStatus.Started) {
             activeLoans[portfolio][instrumentId] = false;
             value[portfolio] -= instrument.principal(instrumentId);
         }

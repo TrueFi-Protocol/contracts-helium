@@ -4,7 +4,7 @@ pragma solidity 0.8.10;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IDebtInstrument} from "./IDebtInstrument.sol";
 
-enum PeriodicLoanStatus {
+enum FixedInterestOnlyLoanStatus {
     Created,
     Accepted,
     Started,
@@ -13,12 +13,12 @@ enum PeriodicLoanStatus {
     Defaulted
 }
 
-interface IPeriodicLoans is IDebtInstrument {
+interface IFixedInterestOnlyLoans is IDebtInstrument {
     struct LoanMetadata {
         uint256 principal;
         uint256 totalDebt;
         uint256 periodPayment;
-        PeriodicLoanStatus status;
+        FixedInterestOnlyLoanStatus status;
         uint16 periodCount;
         uint32 periodDuration;
         uint40 currentPeriodEndDate;
@@ -37,7 +37,7 @@ interface IPeriodicLoans is IDebtInstrument {
             uint256,
             uint256,
             uint256,
-            PeriodicLoanStatus,
+            FixedInterestOnlyLoanStatus,
             uint16,
             uint32,
             uint40,
@@ -62,5 +62,5 @@ interface IPeriodicLoans is IDebtInstrument {
 
     function updateInstrument(uint256 _instrumentId, uint32 _gracePeriod) external;
 
-    function status(uint256 instrumentId) external view returns (PeriodicLoanStatus);
+    function status(uint256 instrumentId) external view returns (FixedInterestOnlyLoanStatus);
 }
