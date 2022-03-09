@@ -2,16 +2,16 @@
 pragma solidity 0.8.10;
 
 import {IERC20WithDecimals} from "./interfaces/IERC20WithDecimals.sol";
-import {IAutoAdjustablePortfolio} from "./interfaces/IAutoAdjustablePortfolio.sol";
+import {IAutomatedLineOfCredit} from "./interfaces/IAutomatedLineOfCredit.sol";
 import {BasePortfolioFactory} from "./BasePortfolioFactory.sol";
 
-contract AutoAdjustablePortfolioFactory is BasePortfolioFactory {
+contract AutomatedLineOfCreditFactory is BasePortfolioFactory {
     function createPortfolio(
         uint256 _duration,
         IERC20WithDecimals _underlyingToken,
         uint256 _managerFee,
         uint256 _maxSize,
-        IAutoAdjustablePortfolio.InterestRateParameters memory _interestRateParameters,
+        IAutomatedLineOfCredit.InterestRateParameters memory _interestRateParameters,
         address _depositStrategy,
         address _withdrawStrategy,
         address _transferStrategy,
@@ -19,7 +19,7 @@ contract AutoAdjustablePortfolioFactory is BasePortfolioFactory {
         string calldata symbol
     ) external onlyWhitelisted {
         bytes memory initCalldata = abi.encodeWithSelector(
-            IAutoAdjustablePortfolio.initialize.selector,
+            IAutomatedLineOfCredit.initialize.selector,
             protocolConfig,
             _duration,
             _underlyingToken,

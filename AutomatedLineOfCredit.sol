@@ -4,11 +4,11 @@ pragma solidity 0.8.10;
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import {IAutoAdjustablePortfolio} from "./interfaces/IAutoAdjustablePortfolio.sol";
+import {IAutomatedLineOfCredit} from "./interfaces/IAutomatedLineOfCredit.sol";
 import {IProtocolConfig} from "./interfaces/IProtocolConfig.sol";
 import {BasePortfolio} from "./BasePortfolio.sol";
 
-contract AutoAdjustablePortfolio is IAutoAdjustablePortfolio, BasePortfolio {
+contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
     using SafeERC20 for IERC20;
 
     uint256 internal constant YEAR = 365 days;
@@ -41,7 +41,7 @@ contract AutoAdjustablePortfolio is IAutoAdjustablePortfolio, BasePortfolio {
         require(
             _interestRateParameters.minInterestRateUtilizationThreshold <= _interestRateParameters.optimumUtilization &&
                 _interestRateParameters.optimumUtilization <= _interestRateParameters.maxInterestRateUtilizationThreshold,
-            "AutoAdjustablePortfolio: Min. Util. <= Optimum Util. <= Max. Util. constraint not met"
+            "AutomatedLineOfCredit: Min. Util. <= Optimum Util. <= Max. Util. constraint not met"
         );
         __BasePortfolio_init(_protocolConfig, _duration, _underlyingToken, _borrower, _managerFee);
         __ERC20_init(name, symbol);
@@ -56,8 +56,8 @@ contract AutoAdjustablePortfolio is IAutoAdjustablePortfolio, BasePortfolio {
     }
 
     function borrow(uint256 amount) public {
-        require(msg.sender == borrower, "AutoAdjustablePortfolio: Unauthorized borrower");
-        require(block.timestamp < endDate, "AutoAdjustablePortfolio: Pool end date has elapsed");
+        require(msg.sender == borrower, "AutomatedLineOfCredit: Unauthorized borrower");
+        require(block.timestamp < endDate, "AutomatedLineOfCredit: Pool end date has elapsed");
 
         borrowedAmount += amount + unincludedInterest();
         lastUtilizationUpdateTime = block.timestamp;
@@ -89,8 +89,8 @@ contract AutoAdjustablePortfolio is IAutoAdjustablePortfolio, BasePortfolio {
     }
 
     function deposit(uint256 amount, address sender) public override {
-        require(block.timestamp < endDate, "AutoAdjustablePortfolio: Pool end date has elapsed");
-        require((value() + amount) <= maxSize, "AutoAdjustablePortfolio: Deposit would cause pool to exceed max size");
+        require(block.timestamp < endDate, "AutomatedLineOfCredit: Pool end date has elapsed");
+        require((value() + amount) <= maxSize, "AutomatedLineOfCredit: Deposit would cause pool to exceed max size");
         updateBorrowedAmount();
         super.deposit(amount, sender);
     }
@@ -143,7 +143,7 @@ contract AutoAdjustablePortfolio is IAutoAdjustablePortfolio, BasePortfolio {
     }
 
     function setMaxSize(uint256 _maxSize) external {
-        require(msg.sender == manager, "AutoAdjustablePortfolio: Only manager can update max size");
+        require(msg.sender == manager, "AutomatedLineOfCredit: Only manager can update max size");
         maxSize = _maxSize;
     }
 
