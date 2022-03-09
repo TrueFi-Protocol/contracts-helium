@@ -4,7 +4,7 @@ pragma solidity 0.8.10;
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import {IAutomatedLineOfCredit} from "./interfaces/IAutomatedLineOfCredit.sol";
+import {IAutomatedLineOfCredit, AutomatedLineOfCreditStatus} from "./interfaces/IAutomatedLineOfCredit.sol";
 import {IProtocolConfig} from "./interfaces/IProtocolConfig.sol";
 import {BasePortfolio} from "./BasePortfolio.sol";
 
@@ -204,6 +204,16 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
         uint256 amountToTransfer = claimableProtocolFees;
         claimableProtocolFees = 0;
         underlyingToken.safeTransfer(protocolConfig.protocolAddress(), amountToTransfer);
+    }
+
+    function getStatus() external view returns (AutomatedLineOfCreditStatus) {
+        if (block.timestamp >= endDate) {
+            return AutomatedLineOfCreditStatus.Closed;
+        }
+        if (value() >= maxSize) {
+            return AutomatedLineOfCreditStatus.Full;
+        }
+        return AutomatedLineOfCreditStatus.Open;
     }
 
     function updateBorrowedAmount() internal {
