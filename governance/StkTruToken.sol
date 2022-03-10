@@ -193,13 +193,13 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
     function _mint(address account, uint256 amount) internal virtual override {
         super._mint(account, amount);
 
-        _writeTotalSupplyCheckpoint(_totalSupplyCheckpoints, _add, amount);
+        _writeTotalSupplyCheckpoint(_add, amount);
     }
 
     function _burn(address account, uint256 amount) internal virtual override {
         super._burn(account, amount);
 
-        _writeTotalSupplyCheckpoint(_totalSupplyCheckpoints, _subtract, amount);
+        _writeTotalSupplyCheckpoint(_subtract, amount);
     }
 
     /**
@@ -641,19 +641,20 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
         sortedScheduledRewardIndices[index] = value;
     }
 
-    function _writeTotalSupplyCheckpoint(
-        Checkpoint[] storage ckpts,
-        function(uint256, uint256) view returns (uint256) op,
-        uint256 delta
-    ) private returns (uint256 oldWeight, uint256 newWeight) {
-        uint256 pos = ckpts.length;
-        oldWeight = pos == 0 ? 0 : ckpts[pos - 1].votes;
+    function _writeTotalSupplyCheckpoint(function(uint256, uint256) view returns (uint256) op, uint256 delta)
+        private
+        returns (uint256 oldWeight, uint256 newWeight)
+    {
+        uint256 pos = _totalSupplyCheckpoints.length;
+        oldWeight = pos == 0 ? 0 : _totalSupplyCheckpoints[pos - 1].votes;
         newWeight = op(oldWeight, delta);
 
-        if (pos > 0 && ckpts[pos - 1].fromBlock == block.number) {
-            ckpts[pos - 1].votes = SafeCast.toUint96(newWeight);
+        if (pos > 0 && _totalSupplyCheckpoints[pos - 1].fromBlock == block.number) {
+            _totalSupplyCheckpoints[pos - 1].votes = SafeCast.toUint96(newWeight);
         } else {
-            ckpts.push(Checkpoint({fromBlock: SafeCast.toUint32(block.number), votes: SafeCast.toUint96(newWeight)}));
+            _totalSupplyCheckpoints.push(
+                Checkpoint({fromBlock: SafeCast.toUint32(block.number), votes: SafeCast.toUint96(newWeight)})
+            );
         }
     }
 
