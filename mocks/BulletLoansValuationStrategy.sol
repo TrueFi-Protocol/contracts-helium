@@ -3,7 +3,7 @@ pragma solidity 0.8.10;
 
 import {IValuationStrategy} from "../interfaces/IValuationStrategy.sol";
 import {IDebtInstrument} from "../interfaces/IDebtInstrument.sol";
-import {IBulletLoans, BulletLoanStatus} from "../interfaces/IBulletLoans.sol";
+import {IBulletLoans, BulletLoanStatus} from "./interfaces/IBulletLoans.sol";
 import {InitializableManageable} from "../access/InitializableManageable.sol";
 import {IBasePortfolio} from "../interfaces/IBasePortfolio.sol";
 
