@@ -7,9 +7,9 @@ import {IFixedInterestOnlyLoans, FixedInterestOnlyLoanStatus} from "../interface
 import {InitializableManageable} from "../access/InitializableManageable.sol";
 import {IBasePortfolio} from "../interfaces/IBasePortfolio.sol";
 
-contract FIOLValuationStrategy is InitializableManageable, IValuationStrategy {
+contract FixedInterestOnlyLoansValuationStrategy is InitializableManageable, IValuationStrategy {
     address public parentStrategy;
-    IFixedInterestOnlyLoans public fiolAddress;
+    IFixedInterestOnlyLoans public fixedInterestOnlyLoansAddress;
     mapping(IBasePortfolio => uint256) public value;
     mapping(IBasePortfolio => mapping(uint256 => bool)) public activeLoans;
 
@@ -18,16 +18,16 @@ contract FIOLValuationStrategy is InitializableManageable, IValuationStrategy {
     modifier onlyPortfolioOrParentStrategy(IBasePortfolio portfolio) {
         require(
             msg.sender == address(portfolio) || msg.sender == parentStrategy,
-            "FIOLValuationStrategy: Only portfolio or parent strategy"
+            "FixedInterestOnlyLoansValuationStrategy: Only portfolio or parent strategy"
         );
         _;
     }
 
     constructor() InitializableManageable(msg.sender) {}
 
-    function initialize(IFixedInterestOnlyLoans _fiolAddress, address _parentStrategy) external initializer {
+    function initialize(IFixedInterestOnlyLoans _fixedInterestOnlyLoansAddress, address _parentStrategy) external initializer {
         InitializableManageable.initialize(msg.sender);
-        fiolAddress = _fiolAddress;
+        fixedInterestOnlyLoansAddress = _fixedInterestOnlyLoansAddress;
         parentStrategy = _parentStrategy;
     }
 
@@ -36,7 +36,7 @@ contract FIOLValuationStrategy is InitializableManageable, IValuationStrategy {
         IDebtInstrument instrument,
         uint256 instrumentId
     ) external onlyPortfolioOrParentStrategy(portfolio) {
-        require(instrument == fiolAddress, "FIOLValuationStrategy: Unexpected instrument");
+        require(instrument == fixedInterestOnlyLoansAddress, "FixedInterestOnlyLoansValuationStrategy: Unexpected instrument");
         activeLoans[portfolio][instrumentId] = true;
         value[portfolio] += instrument.principal(instrumentId);
         emit InstrumentFunded(portfolio, instrument, instrumentId);
@@ -47,7 +47,7 @@ contract FIOLValuationStrategy is InitializableManageable, IValuationStrategy {
         IDebtInstrument instrument,
         uint256 instrumentId
     ) external onlyPortfolioOrParentStrategy(portfolio) {
-        require(instrument == fiolAddress, "FIOLValuationStrategy: Unexpected instrument");
+        require(instrument == fixedInterestOnlyLoansAddress, "FixedInterestOnlyLoansValuationStrategy: Unexpected instrument");
         _tryToExcludeLoan(portfolio, instrument, instrumentId);
     }
 
