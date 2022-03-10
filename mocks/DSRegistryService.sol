@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.10;
 
-import {DSRegistryServiceInterface} from "../interfaces/OPM/DSRegistryServiceInterface.sol";
+import {DSRegistryServiceInterface} from "../interfaces/DSRegistryServiceInterface.sol";
 
 contract DSRegistryService is DSRegistryServiceInterface {
     mapping(address => bool) public isWhitelisted;

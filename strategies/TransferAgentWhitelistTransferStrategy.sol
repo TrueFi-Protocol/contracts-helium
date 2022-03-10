@@ -2,9 +2,9 @@
 pragma solidity 0.8.10;
 
 import {ITransferStrategy} from "../interfaces/ITransferStrategy.sol";
-import {DSRegistryServiceInterface} from "../interfaces/OPM/DSRegistryServiceInterface.sol";
+import {DSRegistryServiceInterface} from "../interfaces/DSRegistryServiceInterface.sol";
 
-contract OPMTransferStrategy is ITransferStrategy {
+contract TransferAgentWhitelistTransferStrategy is ITransferStrategy {
     DSRegistryServiceInterface public registryService;
 
     constructor(DSRegistryServiceInterface _registryService) {
