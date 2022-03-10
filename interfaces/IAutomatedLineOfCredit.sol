@@ -25,7 +25,6 @@ interface IAutomatedLineOfCredit {
         uint256 _duration,
         IERC20 _underlyingToken,
         address _borrower,
-        uint256 _managerFee,
         uint256 _maxSize,
         InterestRateParameters memory _interestRateParameters,
         address _depositStrategy,

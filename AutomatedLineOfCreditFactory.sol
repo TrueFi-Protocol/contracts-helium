@@ -9,7 +9,6 @@ contract AutomatedLineOfCreditFactory is BasePortfolioFactory {
     function createPortfolio(
         uint256 _duration,
         IERC20WithDecimals _underlyingToken,
-        uint256 _managerFee,
         uint256 _maxSize,
         IAutomatedLineOfCredit.InterestRateParameters memory _interestRateParameters,
         address _depositStrategy,
@@ -24,7 +23,6 @@ contract AutomatedLineOfCreditFactory is BasePortfolioFactory {
             _duration,
             _underlyingToken,
             msg.sender,
-            _managerFee,
             _maxSize,
             _interestRateParameters,
             _depositStrategy,

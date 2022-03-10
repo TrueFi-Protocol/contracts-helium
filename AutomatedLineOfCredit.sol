@@ -29,7 +29,6 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
         uint256 _duration,
         IERC20 _underlyingToken,
         address _borrower,
-        uint256 _managerFee,
         uint256 _maxSize,
         InterestRateParameters memory _interestRateParameters,
         address _depositStrategy,
@@ -43,10 +42,10 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
                 _interestRateParameters.optimumUtilization <= _interestRateParameters.maxInterestRateUtilizationThreshold,
             "AutomatedLineOfCredit: Min. Util. <= Optimum Util. <= Max. Util. constraint not met"
         );
-        __BasePortfolio_init(_protocolConfig, _duration, _underlyingToken, _borrower, _managerFee);
+        __BasePortfolio_init(_protocolConfig, _duration, _underlyingToken, _borrower, 0);
         __ERC20_init(name, symbol);
         borrower = _borrower;
-        managerFee = _managerFee;
+        managerFee = 0;
         interestRateParameters = _interestRateParameters;
         maxSize = _maxSize;
 
