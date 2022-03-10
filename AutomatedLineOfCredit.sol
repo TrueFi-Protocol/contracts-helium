@@ -19,6 +19,7 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
     InterestRateParameters public interestRateParameters;
     uint256 private lastUtilizationUpdateTime;
     uint256 public claimableProtocolFees;
+    uint256 public premiumFee;
 
     event Borrowed(uint256 amount);
 
@@ -48,6 +49,7 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
         managerFee = 0;
         interestRateParameters = _interestRateParameters;
         maxSize = _maxSize;
+        premiumFee = _protocolConfig.automatedLineOfCreditPremiumFee();
 
         addStrategy(DEPOSIT_ROLE, depositStrategies, _depositStrategy);
         addStrategy(WITHDRAW_ROLE, withdrawStrategies, _withdrawStrategy);
@@ -163,7 +165,7 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
     }
 
     function totalFee() internal view virtual returns (uint256) {
-        return protocolConfig.protocolFee() + managerFee;
+        return protocolConfig.protocolFee() + managerFee + premiumFee;
     }
 
     function solveLinear(
