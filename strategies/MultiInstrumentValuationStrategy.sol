@@ -21,7 +21,7 @@ contract MultiInstrumentValuationStrategy is InitializableManageable, IValuation
         InitializableManageable.initialize(msg.sender);
     }
 
-    function addStrategy(IDebtInstrument instrument, IValuationStrategy strategy) external onlyManager {
+    function addStrategy(IDebtInstrument instrument, IValuationStrategy strategy) external {
         strategies[instrument] = strategy;
         for (uint256 i; i < instruments.length; i++) {
             if (instruments[i] == instrument) {

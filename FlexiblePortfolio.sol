@@ -133,7 +133,6 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
             return;
         }
         claimedInterest[lender] += amount;
-        totalUnclaimedInterest -= amount;
         underlyingToken.safeTransfer(lender, amount);
         emit InterestClaimed(lender, amount);
     }
