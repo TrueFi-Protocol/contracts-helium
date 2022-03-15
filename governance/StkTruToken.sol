@@ -55,7 +55,7 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
 
     uint256 public stakeSupply;
 
-    mapping(address => uint256) private cooldowns;
+    mapping(address => uint256) internal cooldowns;
     uint256 public cooldownTime;
     uint256 public unstakePeriodDuration;
 
@@ -75,7 +75,7 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
 
     IERC20 public feeToken;
 
-    Checkpoint[] private _totalSupplyCheckpoints;
+    Checkpoint[] internal _totalSupplyCheckpoints;
 
     // ======= STORAGE DECLARATION END ============
 
@@ -642,7 +642,7 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
     }
 
     function _writeTotalSupplyCheckpoint(function(uint256, uint256) view returns (uint256) op, uint256 delta)
-        private
+        internal
         returns (uint256 oldWeight, uint256 newWeight)
     {
         uint256 pos = _totalSupplyCheckpoints.length;
@@ -669,7 +669,7 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
     /**
      * @dev Lookup a value in a list of (sorted) checkpoints.
      */
-    function _checkpointsLookup(Checkpoint[] storage ckpts, uint256 blockNumber) private view returns (uint256) {
+    function _checkpointsLookup(Checkpoint[] storage ckpts, uint256 blockNumber) internal view returns (uint256) {
         // We run a binary search to look for the earliest checkpoint taken after `blockNumber`.
         //
         // During the loop, the index of the wanted checkpoint remains in the range [low-1, high).
