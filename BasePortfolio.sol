@@ -15,8 +15,8 @@ import {ITransferStrategy} from "./interfaces/ITransferStrategy.sol";
 abstract contract BasePortfolio is IBasePortfolio, ERC20Upgradeable, InitializableManageable, AccessControlUpgradeable {
     using SafeERC20 for IERC20;
 
-    event Deposited(uint256 amount, address sender);
-    event Withdrawn(uint256 shares, address sender);
+    event Deposited(uint256 shares, uint256 amount, address sender);
+    event Withdrawn(uint256 shares, uint256 amount, address sender);
 
     bytes32 public constant DEPOSIT_ROLE = keccak256("DEPOSIT_ROLE");
     bytes32 public constant WITHDRAW_ROLE = keccak256("WITHDRAW_ROLE");
@@ -114,16 +114,17 @@ abstract contract BasePortfolio is IBasePortfolio, ERC20Upgradeable, Initializab
     }
 
     function deposit(uint256 amount, address sender) public virtual onlyRole(DEPOSIT_ROLE) {
-        _mint(sender, calculateAmountToMint(amount));
+        uint256 amountToMint = calculateAmountToMint(amount);
+        _mint(sender, amountToMint);
         underlyingToken.safeTransferFrom(sender, address(this), amount);
-        emit Deposited(amount, sender);
+        emit Deposited(amountToMint, amount, sender);
     }
 
     function withdraw(uint256 shares, address sender) public virtual onlyRole(WITHDRAW_ROLE) {
         uint256 amountToWithdraw = calculateAmountToWithdraw(shares);
         _burn(sender, shares);
         underlyingToken.safeTransfer(sender, amountToWithdraw);
-        emit Withdrawn(shares, sender);
+        emit Withdrawn(shares, amountToWithdraw, sender);
     }
 
     function transfer(address recipient, uint256 amount) public override returns (bool) {
