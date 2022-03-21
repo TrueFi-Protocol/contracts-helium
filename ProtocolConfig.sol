@@ -11,6 +11,7 @@ contract ProtocolConfig is InitializableManageable, IProtocolConfig {
 
     event ProtocolFeeChanged(uint256 newProtocolFee);
     event ProtocolAddressChanged(address newProtocolAddress);
+    event AutomatedLineOfCreditPremiumFeeChanged(uint256 newFee);
 
     constructor() InitializableManageable(msg.sender) {}
 
@@ -37,5 +38,6 @@ contract ProtocolConfig is InitializableManageable, IProtocolConfig {
 
     function setAutomatedLineOfCreditPremiumFee(uint256 newFee) external onlyManager {
         automatedLineOfCreditPremiumFee = newFee;
+        emit AutomatedLineOfCreditPremiumFeeChanged(newFee);
     }
 }
