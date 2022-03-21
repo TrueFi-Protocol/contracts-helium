@@ -69,11 +69,11 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
     }
 
     function value() public view override returns (uint256) {
-        return _value(borrowedAmount + unincludedInterest());
+        return _value(totalDebt());
     }
 
     function repay(uint256 amount) public {
-        borrowedAmount = borrowedAmount + unincludedInterest() - amount;
+        borrowedAmount = totalDebt() - amount;
         lastUtilizationUpdateTime = block.timestamp;
 
         underlyingToken.safeTransferFrom(borrower, address(this), amount);
@@ -82,11 +82,11 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
     }
 
     function repayInFull() external {
-        uint256 totalDebt = borrowedAmount + unincludedInterest();
+        uint256 _totalDebt = totalDebt();
         borrowedAmount = 0;
         lastUtilizationUpdateTime = block.timestamp;
 
-        underlyingToken.safeTransferFrom(borrower, address(this), totalDebt);
+        underlyingToken.safeTransferFrom(borrower, address(this), _totalDebt);
     }
 
     function deposit(uint256 amount, address sender) public override {
@@ -149,7 +149,7 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
     }
 
     function utilization() external view returns (uint256) {
-        return _utilization(borrowedAmount + unincludedInterest());
+        return _utilization(totalDebt());
     }
 
     function calculateAmountToWithdraw(uint256 sharesAmount) public view virtual override returns (uint256) {
@@ -166,6 +166,10 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
 
     function totalFee() internal view virtual returns (uint256) {
         return protocolConfig.protocolFee() + managerFee + premiumFee;
+    }
+
+    function totalDebt() public view returns (uint256) {
+        return borrowedAmount + unincludedInterest();
     }
 
     function solveLinear(
@@ -218,7 +222,7 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
     }
 
     function updateBorrowedAmount() internal {
-        borrowedAmount += unincludedInterest();
+        borrowedAmount = totalDebt();
         lastUtilizationUpdateTime = block.timestamp;
     }
 
