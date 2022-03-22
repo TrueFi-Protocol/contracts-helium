@@ -13,4 +13,9 @@ contract MockStkTruToken is StkTruToken {
     function burn(address account, uint256 amount) public {
         super._burn(account, amount);
     }
+
+    function doubleMint(address account, uint256 amount) public {
+        mint(account, amount);
+        mint(account, amount);
+    }
 }
