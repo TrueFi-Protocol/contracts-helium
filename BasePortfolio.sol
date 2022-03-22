@@ -114,7 +114,7 @@ abstract contract BasePortfolio is IBasePortfolio, ERC20Upgradeable, Initializab
     }
 
     function deposit(uint256 amount, address sender) public virtual onlyRole(DEPOSIT_ROLE) {
-        uint256 amountToMint = calculateAmountToMint(amount);
+        uint256 amountToMint = calculateSharesToMint(amount);
         _mint(sender, amountToMint);
         underlyingToken.safeTransferFrom(sender, address(this), amount);
         emit Deposited(amountToMint, amount, sender);
@@ -135,7 +135,7 @@ abstract contract BasePortfolio is IBasePortfolio, ERC20Upgradeable, Initializab
         return false;
     }
 
-    function calculateAmountToMint(uint256 depositedAmount) public view virtual returns (uint256) {
+    function calculateSharesToMint(uint256 depositedAmount) public view virtual returns (uint256) {
         uint256 _totalSupply = totalSupply();
         if (_totalSupply == 0) {
             return (depositedAmount * 10**decimals()) / (10**underlyingTokenDecimals);
