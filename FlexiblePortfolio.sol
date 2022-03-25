@@ -46,20 +46,20 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
         IERC20 _underlyingToken,
         address _manager,
         uint256 _maxValue,
-        address _depositStrategy,
-        address _withdrawStrategy,
-        address _transferStrategy,
-        IValuationStrategy _valuationStrategy,
+        Strategies calldata _strategies,
         IDebtInstrument[] calldata _allowedInstruments,
-        uint256 _managerFee
+        uint256 _managerFee,
+        string memory _name,
+        string memory _symbol
     ) external initializer {
         __BasePortfolio_init(_protocolConfig, _duration, _underlyingToken, _manager, _managerFee);
-        __ERC20_init("FlexiblePortfolio", "FLEX");
+        __ERC20_init(_name, _symbol);
         maxValue = _maxValue;
-        addStrategy(DEPOSIT_ROLE, depositStrategies, _depositStrategy);
-        addStrategy(WITHDRAW_ROLE, withdrawStrategies, _withdrawStrategy);
-        transferStrategy = _transferStrategy;
-        valuationStrategy = _valuationStrategy;
+
+        addStrategy(DEPOSIT_ROLE, depositStrategies, _strategies.depositStrategy);
+        addStrategy(WITHDRAW_ROLE, withdrawStrategies, _strategies.withdrawStrategy);
+        transferStrategy = _strategies.transferStrategy;
+        valuationStrategy = _strategies.valuationStrategy;
 
         for (uint256 i; i < _allowedInstruments.length; i++) {
             isInstrumentAllowed[_allowedInstruments[i]] = true;
