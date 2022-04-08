@@ -101,6 +101,7 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
     function withdraw(uint256 shares, address sender) public override {
         require(msg.sender != address(this), "AutomatedLineOfCredit: Pool cannot withdraw from itself");
         require(msg.sender != sender, "AutomatedLineOfCredit: Pool cannot withdraw from itself");
+        require(sender != address(this), "AutomatedLineOfCredit: Pool cannot withdraw from itself");
         updateBorrowedAmount();
         uint256 feeAmount = calculateFeeAmount(shares);
         super.withdraw(shares, sender);
