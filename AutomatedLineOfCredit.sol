@@ -73,6 +73,7 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
     }
 
     function repay(uint256 amount) public {
+        require(msg.sender != address(this), "AutomatedLineOfCredit: Pool cannot repay itself");
         borrowedAmount = totalDebt() - amount;
         lastUtilizationUpdateTime = block.timestamp;
 
@@ -82,6 +83,7 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
     }
 
     function repayInFull() external {
+        require(msg.sender != address(this), "AutomatedLineOfCredit: Pool cannot repay itself");
         uint256 _totalDebt = totalDebt();
         borrowedAmount = 0;
         lastUtilizationUpdateTime = block.timestamp;
@@ -97,6 +99,8 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
     }
 
     function withdraw(uint256 shares, address sender) public override {
+        require(msg.sender != address(this), "AutomatedLineOfCredit: Pool cannot withdraw from itself");
+        require(msg.sender != sender, "AutomatedLineOfCredit: Pool cannot withdraw from itself");
         updateBorrowedAmount();
         uint256 feeAmount = calculateFeeAmount(shares);
         super.withdraw(shares, sender);
