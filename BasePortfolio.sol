@@ -91,7 +91,7 @@ abstract contract BasePortfolio is IBasePortfolio, ERC20Upgradeable, Initializab
         addStrategy(DEPOSIT_ROLE, depositStrategies, _depositStrategy);
     }
 
-    function removeDepositStrategy(address _depositStrategy) external {
+    function removeDepositStrategy(address _depositStrategy) public virtual {
         removeStrategy(DEPOSIT_ROLE, depositStrategies, _depositStrategy);
     }
 
@@ -99,7 +99,7 @@ abstract contract BasePortfolio is IBasePortfolio, ERC20Upgradeable, Initializab
         addStrategy(WITHDRAW_ROLE, withdrawStrategies, _withdrawStrategy);
     }
 
-    function removeWithdrawStrategy(address _withdrawStrategy) external {
+    function removeWithdrawStrategy(address _withdrawStrategy) public virtual {
         removeStrategy(WITHDRAW_ROLE, withdrawStrategies, _withdrawStrategy);
     }
 
