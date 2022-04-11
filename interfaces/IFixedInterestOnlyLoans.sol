@@ -16,7 +16,6 @@ enum FixedInterestOnlyLoanStatus {
 interface IFixedInterestOnlyLoans is IDebtInstrument {
     struct LoanMetadata {
         uint256 principal;
-        uint256 totalDebt;
         uint256 periodPayment;
         FixedInterestOnlyLoanStatus status;
         uint16 periodCount;
@@ -34,7 +33,6 @@ interface IFixedInterestOnlyLoans is IDebtInstrument {
         external
         view
         returns (
-            uint256,
             uint256,
             uint256,
             FixedInterestOnlyLoanStatus,

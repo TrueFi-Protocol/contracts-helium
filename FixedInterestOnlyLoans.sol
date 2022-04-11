@@ -52,10 +52,6 @@ contract FixedInterestOnlyLoans is ERC721Upgradeable, InitializableManageable, I
         return loans[instrumentId].endDate;
     }
 
-    function totalDebt(uint256 instrumentId) external view returns (uint256) {
-        return loans[instrumentId].totalDebt;
-    }
-
     function gracePeriod(uint256 instrumentId) external view returns (uint256) {
         return loans[instrumentId].gracePeriod;
     }
@@ -98,7 +94,6 @@ contract FixedInterestOnlyLoans is ERC721Upgradeable, InitializableManageable, I
         loans.push(
             LoanMetadata(
                 _principal,
-                _totalInterest + _principal, // totalDebt
                 _periodPayment,
                 FixedInterestOnlyLoanStatus.Created,
                 _periodCount,
