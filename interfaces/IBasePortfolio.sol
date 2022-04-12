@@ -11,7 +11,7 @@ interface IBasePortfolio is IManageable {
 
     function deposit(uint256 amount, address sender) external;
 
-    function withdraw(uint256 amount, address sender) external;
+    function withdraw(uint256 shares, address sender) external;
 
     function value() external view returns (uint256);
 }
