@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.10;
 
-import {InitializableManageable} from "../access/InitializableManageable.sol";
+import {Upgradeable} from "../access/Upgradeable.sol";
 import {IValuationStrategy} from "../interfaces/IValuationStrategy.sol";
 import {IDebtInstrument} from "../interfaces/IDebtInstrument.sol";
 import {IBasePortfolio} from "../interfaces/IBasePortfolio.sol";
 
-contract MultiInstrumentValuationStrategy is InitializableManageable, IValuationStrategy {
+contract MultiInstrumentValuationStrategy is Upgradeable, IValuationStrategy {
     IDebtInstrument[] public instruments;
     mapping(IDebtInstrument => IValuationStrategy) public strategies;
 
@@ -15,10 +15,8 @@ contract MultiInstrumentValuationStrategy is InitializableManageable, IValuation
         _;
     }
 
-    constructor() InitializableManageable(msg.sender) {}
-
     function initialize() external initializer {
-        InitializableManageable.initialize(msg.sender);
+        __Upgradeable_init(msg.sender);
     }
 
     function addStrategy(IDebtInstrument instrument, IValuationStrategy strategy) external {

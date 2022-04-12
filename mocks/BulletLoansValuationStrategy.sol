@@ -4,10 +4,10 @@ pragma solidity 0.8.10;
 import {IValuationStrategy} from "../interfaces/IValuationStrategy.sol";
 import {IDebtInstrument} from "../interfaces/IDebtInstrument.sol";
 import {IBulletLoans, BulletLoanStatus} from "./interfaces/IBulletLoans.sol";
-import {InitializableManageable} from "../access/InitializableManageable.sol";
+import {Upgradeable} from "../access/Upgradeable.sol";
 import {IBasePortfolio} from "../interfaces/IBasePortfolio.sol";
 
-contract BulletLoansValuationStrategy is InitializableManageable, IValuationStrategy {
+contract BulletLoansValuationStrategy is Upgradeable, IValuationStrategy {
     address public parentStrategy;
     IBulletLoans public bulletLoansAddress;
     mapping(IBasePortfolio => uint256[]) public bulletLoans;
@@ -23,10 +23,8 @@ contract BulletLoansValuationStrategy is InitializableManageable, IValuationStra
         _;
     }
 
-    constructor() InitializableManageable(msg.sender) {}
-
     function initialize(IBulletLoans _bulletLoans, address _parentStrategy) external initializer {
-        InitializableManageable.initialize(msg.sender);
+        __Upgradeable_init(msg.sender);
         bulletLoansAddress = _bulletLoans;
         parentStrategy = _parentStrategy;
     }

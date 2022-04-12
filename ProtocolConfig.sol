@@ -2,9 +2,9 @@
 pragma solidity 0.8.10;
 
 import {IProtocolConfig} from "./interfaces/IProtocolConfig.sol";
-import {InitializableManageable} from "./access/InitializableManageable.sol";
+import {Upgradeable} from "./access/Upgradeable.sol";
 
-contract ProtocolConfig is InitializableManageable, IProtocolConfig {
+contract ProtocolConfig is Upgradeable, IProtocolConfig {
     uint256 public protocolFee;
     address public protocolAddress;
     uint256 public automatedLineOfCreditPremiumFee;
@@ -13,30 +13,28 @@ contract ProtocolConfig is InitializableManageable, IProtocolConfig {
     event ProtocolAddressChanged(address newProtocolAddress);
     event AutomatedLineOfCreditPremiumFeeChanged(uint256 newFee);
 
-    constructor() InitializableManageable(msg.sender) {}
-
     function initialize(
         uint256 _protocolFee,
         address _protocolAddress,
         uint256 _automatedLineOfCreditPremiumFee
     ) external initializer {
-        InitializableManageable.initialize(msg.sender);
+        __Upgradeable_init(msg.sender);
         protocolFee = _protocolFee;
         protocolAddress = _protocolAddress;
         automatedLineOfCreditPremiumFee = _automatedLineOfCreditPremiumFee;
     }
 
-    function setProtocolFee(uint256 newFee) external onlyManager {
+    function setProtocolFee(uint256 newFee) external onlyAdministration {
         protocolFee = newFee;
         emit ProtocolFeeChanged(newFee);
     }
 
-    function setProtocolAddress(address newProtocolAddress) external onlyManager {
+    function setProtocolAddress(address newProtocolAddress) external onlyAdministration {
         protocolAddress = newProtocolAddress;
         emit ProtocolAddressChanged(newProtocolAddress);
     }
 
-    function setAutomatedLineOfCreditPremiumFee(uint256 newFee) external onlyManager {
+    function setAutomatedLineOfCreditPremiumFee(uint256 newFee) external onlyAdministration {
         automatedLineOfCreditPremiumFee = newFee;
         emit AutomatedLineOfCreditPremiumFeeChanged(newFee);
     }

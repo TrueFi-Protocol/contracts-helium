@@ -4,10 +4,10 @@ pragma solidity 0.8.10;
 import {IValuationStrategy} from "../interfaces/IValuationStrategy.sol";
 import {IDebtInstrument} from "../interfaces/IDebtInstrument.sol";
 import {IFixedInterestOnlyLoans, FixedInterestOnlyLoanStatus} from "../interfaces/IFixedInterestOnlyLoans.sol";
-import {InitializableManageable} from "../access/InitializableManageable.sol";
+import {Upgradeable} from "../access/Upgradeable.sol";
 import {IBasePortfolio} from "../interfaces/IBasePortfolio.sol";
 
-contract FixedInterestOnlyLoansValuationStrategy is InitializableManageable, IValuationStrategy {
+contract FixedInterestOnlyLoansValuationStrategy is Upgradeable, IValuationStrategy {
     address public parentStrategy;
     IFixedInterestOnlyLoans public fixedInterestOnlyLoansAddress;
     mapping(IBasePortfolio => uint256) public value;
@@ -23,10 +23,8 @@ contract FixedInterestOnlyLoansValuationStrategy is InitializableManageable, IVa
         _;
     }
 
-    constructor() InitializableManageable(msg.sender) {}
-
     function initialize(IFixedInterestOnlyLoans _fixedInterestOnlyLoansAddress, address _parentStrategy) external initializer {
-        InitializableManageable.initialize(msg.sender);
+        __Upgradeable_init(msg.sender);
         fixedInterestOnlyLoansAddress = _fixedInterestOnlyLoansAddress;
         parentStrategy = _parentStrategy;
     }

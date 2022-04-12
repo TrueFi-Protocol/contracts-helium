@@ -4,7 +4,8 @@ pragma solidity 0.8.10;
 import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import {InitializableManageable} from "./access/InitializableManageable.sol";
+import {Manageable} from "./access/Manageable.sol";
+import {Upgradeable} from "./access/Upgradeable.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {IProtocolConfig} from "./interfaces/IProtocolConfig.sol";
@@ -12,7 +13,7 @@ import {IBasePortfolio} from "./interfaces/IBasePortfolio.sol";
 import {IERC20WithDecimals} from "./interfaces/IERC20WithDecimals.sol";
 import {ITransferStrategy} from "./interfaces/ITransferStrategy.sol";
 
-abstract contract BasePortfolio is IBasePortfolio, ERC20Upgradeable, InitializableManageable, AccessControlUpgradeable {
+abstract contract BasePortfolio is IBasePortfolio, ERC20Upgradeable, Upgradeable, Manageable, AccessControlUpgradeable {
     using SafeERC20 for IERC20;
 
     event Deposited(uint256 shares, uint256 amount, address sender);
@@ -32,8 +33,6 @@ abstract contract BasePortfolio is IBasePortfolio, ERC20Upgradeable, Initializab
     IProtocolConfig public protocolConfig;
     uint256 public managerFee;
 
-    constructor() InitializableManageable(msg.sender) {}
-
     function __BasePortfolio_init(
         IProtocolConfig _protocolConfig,
         uint256 _duration,
@@ -41,7 +40,8 @@ abstract contract BasePortfolio is IBasePortfolio, ERC20Upgradeable, Initializab
         address _manager,
         uint256 _managerFee
     ) internal initializer {
-        InitializableManageable.initialize(_manager);
+        __Manageable_init(_manager);
+        __Upgradeable_init(_protocolConfig.protocolAddress());
         AccessControlUpgradeable.__AccessControl_init();
 
         protocolConfig = _protocolConfig;

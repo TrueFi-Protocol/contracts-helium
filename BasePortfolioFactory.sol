@@ -4,11 +4,10 @@ pragma solidity 0.8.10;
 import {IBasePortfolio} from "./interfaces/IBasePortfolio.sol";
 import {IERC20WithDecimals} from "./interfaces/IERC20WithDecimals.sol";
 import {IProtocolConfig} from "./interfaces/IProtocolConfig.sol";
-
-import {InitializableManageable} from "./access/InitializableManageable.sol";
 import {ProxyWrapper} from "./proxy/ProxyWrapper.sol";
+import {Upgradeable} from "./access/Upgradeable.sol";
 
-abstract contract BasePortfolioFactory is InitializableManageable {
+abstract contract BasePortfolioFactory is Upgradeable {
     IBasePortfolio public portfolioImplementation;
     IBasePortfolio[] public portfolios;
     IProtocolConfig public protocolConfig;
@@ -24,20 +23,18 @@ abstract contract BasePortfolioFactory is InitializableManageable {
         _;
     }
 
-    constructor() InitializableManageable(msg.sender) {}
-
     function initialize(IBasePortfolio _portfolioImplementation, IProtocolConfig _protocolConfig) external initializer {
-        InitializableManageable.initialize(msg.sender);
+        __Upgradeable_init(msg.sender);
         portfolioImplementation = _portfolioImplementation;
         protocolConfig = _protocolConfig;
     }
 
-    function setIsWhitelisted(address account, bool _isWhitelisted) external onlyManager {
+    function setIsWhitelisted(address account, bool _isWhitelisted) external onlyAdministration {
         isWhitelisted[account] = _isWhitelisted;
         emit WhitelistChanged(account, _isWhitelisted);
     }
 
-    function setPortfolioImplementation(IBasePortfolio newImplementation) external onlyManager {
+    function setPortfolioImplementation(IBasePortfolio newImplementation) external onlyAdministration {
         portfolioImplementation = newImplementation;
         emit PortfolioImplementationChanged(newImplementation);
     }

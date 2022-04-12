@@ -3,10 +3,10 @@ pragma solidity 0.8.10;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ERC721Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
-import {InitializableManageable} from "./access/InitializableManageable.sol";
+import {Upgradeable} from "./access/Upgradeable.sol";
 import {IFixedInterestOnlyLoans, FixedInterestOnlyLoanStatus} from "./interfaces/IFixedInterestOnlyLoans.sol";
 
-contract FixedInterestOnlyLoans is ERC721Upgradeable, InitializableManageable, IFixedInterestOnlyLoans {
+contract FixedInterestOnlyLoans is ERC721Upgradeable, Upgradeable, IFixedInterestOnlyLoans {
     LoanMetadata[] public loans;
 
     event LoanIssued(uint256 instrumentId);
@@ -25,10 +25,8 @@ contract FixedInterestOnlyLoans is ERC721Upgradeable, InitializableManageable, I
         _;
     }
 
-    constructor() InitializableManageable(msg.sender) {}
-
     function initialize() external initializer {
-        InitializableManageable.initialize(msg.sender);
+        __Upgradeable_init(msg.sender);
         __ERC721_init("FixedInterestOnlyLoans", "FIOL");
     }
 

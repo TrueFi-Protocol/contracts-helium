@@ -3,7 +3,7 @@ pragma solidity 0.8.10;
 
 import {IManageable} from "./interfaces/IManageable.sol";
 
-contract Manageable is IManageable {
+abstract contract Manageable is IManageable {
     address public manager;
     address public pendingManager;
 
@@ -14,8 +14,8 @@ contract Manageable is IManageable {
         _;
     }
 
-    constructor(address _manager) {
-        _setManager(_manager);
+    function __Manageable_init(address _manager) internal {
+        manager = _manager;
     }
 
     function transferManagement(address newManager) external onlyManager {
