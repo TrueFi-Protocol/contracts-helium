@@ -29,7 +29,7 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
     mapping(address => uint256) public previousCumulatedInterestPerShare;
     mapping(address => uint256) public claimableInterest;
     mapping(address => uint256) public claimedInterest;
-    uint256 totalUnclaimedInterest;
+    uint256 public totalUnclaimedInterest;
 
     event InstrumentAdded(IDebtInstrument instrument, uint256 instrumentId);
     event InstrumentFunded(IDebtInstrument instrument, uint256 instrumentId);
@@ -133,6 +133,7 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
             return;
         }
         claimedInterest[lender] += amount;
+        totalUnclaimedInterest -= amount;
         underlyingToken.safeTransfer(lender, amount);
         emit InterestClaimed(lender, amount);
     }
