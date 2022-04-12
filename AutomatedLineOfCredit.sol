@@ -18,7 +18,6 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
     address public borrower;
     InterestRateParameters public interestRateParameters;
     uint256 private lastUtilizationUpdateTime;
-    uint256 public claimableProtocolFees;
     uint256 public premiumFee;
 
     event Borrowed(uint256 amount);
@@ -98,14 +97,21 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
         super.deposit(amount, sender);
     }
 
-    function withdraw(uint256 shares, address sender) public override {
+    function withdraw(uint256 shares, address sender) public override onlyRole(WITHDRAW_ROLE) {
         require(msg.sender != address(this), "AutomatedLineOfCredit: Pool cannot withdraw from itself");
         require(msg.sender != sender, "AutomatedLineOfCredit: Pool cannot withdraw from itself");
         require(sender != address(this), "AutomatedLineOfCredit: Pool cannot withdraw from itself");
         updateBorrowedAmount();
-        uint256 feeAmount = calculateFeeAmount(shares);
-        super.withdraw(shares, sender);
-        claimableProtocolFees += feeAmount;
+        uint256 _sharesValue = sharesValue(shares);
+        uint256 feeAmount = calculateFeeAmount(_sharesValue);
+        uint256 amountToWithdraw = _sharesValue - feeAmount;
+
+        _burn(sender, shares);
+
+        underlyingToken.safeTransfer(sender, amountToWithdraw);
+        underlyingToken.safeTransfer(protocolConfig.protocolAddress(), feeAmount);
+
+        emit Withdrawn(shares, amountToWithdraw, sender);
     }
 
     function unincludedInterest() internal view returns (uint256) {
@@ -161,12 +167,12 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
         return (sharesValue(sharesAmount) * (10000 - totalFee())) / 10000;
     }
 
-    function calculateFeeAmount(uint256 sharesAmount) public view virtual returns (uint256) {
-        return (sharesValue(sharesAmount) * totalFee()) / 10000;
-    }
-
     function sharesValue(uint256 sharesAmount) public view virtual returns (uint256) {
         return (sharesAmount * value()) / totalSupply();
+    }
+
+    function calculateFeeAmount(uint256 _sharesValue) internal view virtual returns (uint256) {
+        return (_sharesValue * totalFee()) / 10000;
     }
 
     function totalFee() internal view virtual returns (uint256) {
@@ -210,12 +216,6 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
         );
     }
 
-    function claimProtocolFees() public {
-        uint256 amountToTransfer = claimableProtocolFees;
-        claimableProtocolFees = 0;
-        underlyingToken.safeTransfer(protocolConfig.protocolAddress(), amountToTransfer);
-    }
-
     function getStatus() external view returns (AutomatedLineOfCreditStatus) {
         if (block.timestamp >= endDate) {
             return AutomatedLineOfCreditStatus.Closed;
@@ -232,7 +232,7 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
     }
 
     function _value(uint256 debt) internal view returns (uint256) {
-        return underlyingToken.balanceOf(address(this)) + debt - claimableProtocolFees;
+        return underlyingToken.balanceOf(address(this)) + debt;
     }
 
     function _utilization(uint256 debt) internal view returns (uint256) {
