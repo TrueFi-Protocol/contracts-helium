@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.10;
+pragma solidity ^0.8.10;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IBasePortfolio} from "./IBasePortfolio.sol";
@@ -13,6 +13,11 @@ interface IFlexiblePortfolio is IBasePortfolio {
         address withdrawStrategy;
         address transferStrategy;
         IValuationStrategy valuationStrategy;
+    }
+
+    struct InterestDetails {
+        uint256 previousCumulatedInterestPerShare;
+        uint256 claimableInterest;
     }
 
     function initialize(

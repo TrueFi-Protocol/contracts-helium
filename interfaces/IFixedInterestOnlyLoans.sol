@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.10;
+pragma solidity ^0.8.10;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IDebtInstrument} from "./IDebtInstrument.sol";
@@ -28,24 +28,6 @@ interface IFixedInterestOnlyLoans is IDebtInstrument {
         uint40 endDate;
         IERC20 underlyingToken;
     }
-
-    function loans(uint256 id)
-        external
-        view
-        returns (
-            uint256,
-            uint256,
-            FixedInterestOnlyLoanStatus,
-            uint16,
-            uint32,
-            uint40,
-            address,
-            bool,
-            uint16,
-            uint32,
-            uint40,
-            IERC20
-        );
 
     function issueLoan(
         IERC20 _underlyingToken,

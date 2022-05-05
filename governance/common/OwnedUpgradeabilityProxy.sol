@@ -31,7 +31,7 @@
 // SPDX-License-Identifier: MIT
 
 // File: contracts/proxy/OwnedUpgradeabilityProxy.sol
-pragma solidity 0.8.10;
+pragma solidity ^0.8.10;
 
 /**
  * @title OwnedUpgradeabilityProxy

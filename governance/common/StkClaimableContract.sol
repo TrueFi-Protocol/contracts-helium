@@ -18,7 +18,8 @@ contract StkClaimableContract is ProxyStorage {
         return pendingOwner_;
     }
 
-    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    event OwnershipTransferred(address indexed currentOwner, address indexed newPendingOwner);
+    event OwnershipClaimed(address indexed currentOwner, address indexed newOwner);
 
     /**
      * @dev sets the original `owner` of the contract to the sender
@@ -26,7 +27,7 @@ contract StkClaimableContract is ProxyStorage {
      */
     constructor() {
         owner_ = msg.sender;
-        emit OwnershipTransferred(address(0), msg.sender);
+        emit OwnershipClaimed(address(0), msg.sender);
     }
 
     /**
@@ -51,6 +52,7 @@ contract StkClaimableContract is ProxyStorage {
      */
     function transferOwnership(address newOwner) public onlyOwner {
         pendingOwner_ = newOwner;
+        emit OwnershipTransferred(owner_, newOwner);
     }
 
     /**
@@ -58,7 +60,7 @@ contract StkClaimableContract is ProxyStorage {
      */
     function claimOwnership() public onlyPendingOwner {
         address _pendingOwner = pendingOwner_;
-        emit OwnershipTransferred(owner_, _pendingOwner);
+        emit OwnershipClaimed(owner_, _pendingOwner);
         owner_ = _pendingOwner;
         pendingOwner_ = address(0);
     }

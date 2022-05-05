@@ -2,14 +2,15 @@
 pragma solidity ^0.8.10;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 import {VoteToken} from "./VoteToken.sol";
-import {ITrueDistributor} from "./interface/ITrueDistributor.sol";
+import {ITrueDistributor} from "./interfaces/ITrueDistributor.sol";
 import {StkClaimableContract} from "./common/StkClaimableContract.sol";
-import {IPauseableContract} from "./interface/IPauseableContract.sol";
+import {IPauseableContract} from "./interfaces/IPauseableContract.sol";
 
 /**
  * @title stkTRU
@@ -22,8 +23,13 @@ import {IPauseableContract} from "./interface/IPauseableContract.sol";
  * stkTRU can be used to rate and approve loans
  */
 contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, ReentrancyGuard {
+    using SafeERC20 for IERC20;
+
     uint256 private constant PRECISION = 1e30;
     uint256 private constant MIN_DISTRIBUTED_AMOUNT = 100e8;
+    uint256 private constant MAX_COOLDOWN = 100 * 365 days;
+    uint256 private constant MAX_UNSTAKE_PERIOD = 100 * 365 days;
+    uint32 private constant SCHEDULED_REWARDS_BATCH_SIZE = 32;
 
     struct FarmRewards {
         // track overall cumulative rewards
@@ -92,37 +98,13 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
     event LiquidatorChanged(address liquidator);
 
     /**
-     * @dev pool can only be joined when it's unpaused
-     */
-    modifier joiningNotPaused() {
-        require(!pauseStatus, "StkTruToken: Joining the pool is paused");
-        _;
-    }
-
-    /**
-     * @dev Only Liquidator contract can perform TRU liquidations
-     */
-    modifier onlyLiquidator() {
-        require(msg.sender == liquidator, "StkTruToken: Can be called only by the liquidator");
-        _;
-    }
-
-    /**
-     * @dev Only whitelisted payers can pay fees
-     */
-    modifier onlyWhitelistedPayers() {
-        require(whitelistedFeePayers[msg.sender], "StkTruToken: Can be called only by whitelisted payers");
-        _;
-    }
-
-    /**
      * Get TRU from distributor
      */
     modifier distribute() {
         // pull TRU from distributor
         // do not pull small amounts to save some gas
         // only pull if there is distribution and distributor farm is set to this farm
-        if (distributor.nextDistribution() > MIN_DISTRIBUTED_AMOUNT && distributor.farm() == address(this)) {
+        if (distributor.nextDistribution() >= MIN_DISTRIBUTED_AMOUNT && distributor.farm() == address(this)) {
             distributor.distribute();
         }
         _;
@@ -133,13 +115,17 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
      * @param account Account to update rewards for
      */
     modifier update(address account) {
+        _update(account);
+        _;
+    }
+
+    function _update(address account) internal {
         updateTotalRewards(tru);
         updateClaimableRewards(tru, account);
         updateTotalRewards(tfusd);
         updateClaimableRewards(tfusd, account);
         updateTotalRewards(feeToken);
         updateClaimableRewards(feeToken, account);
-        _;
     }
 
     /**
@@ -148,17 +134,15 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
      * @param token Token to update rewards for
      */
     modifier updateRewards(address account, IERC20 token) {
-        if (token == tru) {
-            updateTotalRewards(tru);
-            updateClaimableRewards(tru, account);
-        } else if (token == tfusd) {
-            updateTotalRewards(tfusd);
-            updateClaimableRewards(tfusd, account);
-        } else if (token == feeToken) {
-            updateTotalRewards(feeToken);
-            updateClaimableRewards(feeToken, account);
+        if (token == tru || token == tfusd || token == feeToken) {
+            updateTotalRewards(token);
+            updateClaimableRewards(token, account);
         }
         _;
+    }
+
+    constructor() {
+        initalized = true;
     }
 
     /**
@@ -177,6 +161,9 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
         address _liquidator
     ) public {
         require(!initalized, "StkTruToken: Already initialized");
+        require(address(_tru) != address(0), "StkTruToken: TRU token address must not be 0");
+        require(address(_tfusd) != address(0), "StkTruToken: tfUSD token address must not be 0");
+        require(address(_feeToken) != address(0), "StkTruToken: fee token address must not be 0");
         tru = _tru;
         tfusd = _tfusd;
         feeToken = _feeToken;
@@ -186,19 +173,24 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
         cooldownTime = 14 days;
         unstakePeriodDuration = 2 days;
 
+        initTotalSupplyCheckpoints();
+
         owner_ = msg.sender;
         initalized = true;
     }
 
+    function initTotalSupplyCheckpoints() public onlyOwner {
+        require(_totalSupplyCheckpoints.length == 0, "StakeTruToken: Total supply checkpoints already initialized");
+        _totalSupplyCheckpoints.push(Checkpoint({fromBlock: SafeCast.toUint32(block.number), votes: SafeCast.toUint96(totalSupply)}));
+    }
+
     function _mint(address account, uint256 amount) internal virtual override {
         super._mint(account, amount);
-
         _writeTotalSupplyCheckpoint(_add, amount);
     }
 
     function _burn(address account, uint256 amount) internal virtual override {
         super._burn(account, amount);
-
         _writeTotalSupplyCheckpoint(_subtract, amount);
     }
 
@@ -207,6 +199,7 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
      * @param _feeToken Address of tfUSDC to be set
      */
     function setFeeToken(IERC20 _feeToken) external onlyOwner {
+        require(address(_feeToken) != address(0), "StkTruToken: fee token address must not be 0");
         require(rewardBalance(feeToken) == 0, "StkTruToken: Cannot replace fee token with underlying rewards");
         feeToken = _feeToken;
         emit FeeTokenChanged(_feeToken);
@@ -239,7 +232,7 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
      */
     function setCooldownTime(uint256 newCooldownTime) external onlyOwner {
         // Avoid overflow
-        require(newCooldownTime <= 100 * 365 days, "StkTruToken: Cooldown too large");
+        require(newCooldownTime <= MAX_COOLDOWN, "StkTruToken: Cooldown too large");
 
         cooldownTime = newCooldownTime;
         emit CooldownTimeChanged(newCooldownTime);
@@ -262,7 +255,7 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
     function setUnstakePeriodDuration(uint256 newUnstakePeriodDuration) external onlyOwner {
         require(newUnstakePeriodDuration > 0, "StkTruToken: Unstake period cannot be 0");
         // Avoid overflow
-        require(newUnstakePeriodDuration <= 100 * 365 days, "StkTruToken: Unstake period too large");
+        require(newUnstakePeriodDuration <= MAX_UNSTAKE_PERIOD, "StkTruToken: Unstake period too large");
 
         unstakePeriodDuration = newUnstakePeriodDuration;
         emit UnstakePeriodDurationChanged(newUnstakePeriodDuration);
@@ -273,9 +266,10 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
      * Updates rewards when staking
      * @param amount Amount of TRU to stake for stkTRU
      */
-    function stake(uint256 amount) external distribute update(msg.sender) joiningNotPaused {
+    function stake(uint256 amount) external distribute update(msg.sender) {
+        require(!pauseStatus, "StkTruToken: Can be called only when not paused");
         _stakeWithoutTransfer(amount);
-        tru.transferFrom(msg.sender, address(this), amount);
+        tru.safeTransferFrom(msg.sender, address(this), amount);
     }
 
     /**
@@ -300,7 +294,7 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
         _burn(msg.sender, amount);
         stakeSupply = stakeSupply - amountToTransfer;
 
-        tru.transfer(msg.sender, amountToTransfer);
+        tru.safeTransfer(msg.sender, amountToTransfer);
 
         emit Unstake(msg.sender, amount);
     }
@@ -319,9 +313,11 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
      * @dev Withdraw TRU from the contract for liquidation
      * @param amount Amount to withdraw for liquidation
      */
-    function withdraw(uint256 amount) external onlyLiquidator {
+    function withdraw(uint256 amount) external {
+        require(msg.sender == liquidator, "StkTruToken: Can be called only by the liquidator");
+        require(amount <= stakeSupply, "StkTruToken: Insufficient stake supply");
         stakeSupply = stakeSupply - amount;
-        tru.transfer(liquidator, amount);
+        tru.safeTransfer(liquidator, amount);
 
         emit Withdraw(amount);
     }
@@ -332,23 +328,26 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
      * @return Unlock time for account
      */
     function unlockTime(address account) public view returns (uint256) {
-        if (cooldowns[account] == 0 || cooldowns[account] + cooldownTime + unstakePeriodDuration < block.timestamp) {
+        uint256 cooldownStart = cooldowns[account];
+        if (cooldownStart == 0 || cooldownStart + cooldownTime + unstakePeriodDuration < block.timestamp) {
             return type(uint256).max;
         }
-        return cooldowns[account] + cooldownTime;
+        return cooldownStart + cooldownTime;
     }
 
     /**
      * @dev Give tfUSD as origination fee to stake.this
      * 50% are given immediately and 50% after `endTime` passes
      */
-    function payFee(uint256 amount, uint256 endTime) external onlyWhitelistedPayers {
-        require(endTime < type(uint64).max, "StkTruToken: time overflow");
-        require(amount < type(uint96).max, "StkTruToken: amount overflow");
+    function payFee(uint256 amount, uint256 endTime) external {
+        require(whitelistedFeePayers[msg.sender], "StkTruToken: Can be called only by whitelisted payers");
+        require(endTime <= type(uint64).max, "StkTruToken: time overflow");
+        require(amount <= type(uint96).max, "StkTruToken: amount overflow");
 
-        tfusd.transferFrom(msg.sender, address(this), amount);
-        undistributedTfusdRewards = undistributedTfusdRewards + (amount / 2);
-        scheduledRewards.push(ScheduledTfUsdRewards({amount: uint96(amount / 2), timestamp: uint64(endTime)}));
+        tfusd.safeTransferFrom(msg.sender, address(this), amount);
+        uint256 halfAmount = amount / 2;
+        undistributedTfusdRewards = undistributedTfusdRewards + halfAmount;
+        scheduledRewards.push(ScheduledTfUsdRewards({amount: uint96(amount - halfAmount), timestamp: uint64(endTime)}));
 
         uint32 newIndex = findPositionForTimestamp(endTime);
         insertAt(newIndex, uint32(scheduledRewards.length) - 1);
@@ -383,7 +382,7 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
         uint256 amount = _claimWithoutTransfer(tru) + extraStakeAmount;
         _stakeWithoutTransfer(amount);
         if (extraStakeAmount > 0) {
-            tru.transferFrom(msg.sender, address(this), extraStakeAmount);
+            tru.safeTransferFrom(msg.sender, address(this), extraStakeAmount);
         }
     }
 
@@ -394,34 +393,37 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
      * @return claimable rewards for account
      */
     function claimable(address account, IERC20 token) external view returns (uint256) {
+        FarmRewards storage rewards = farmRewards[token];
         // estimate pending reward from distributor
-        uint256 pending = token == tru ? distributor.nextDistribution() : 0;
+        uint256 pendingReward = token == tru ? distributor.nextDistribution() : 0;
         // calculate total rewards (including pending)
         uint256 newTotalFarmRewards = (rewardBalance(token) +
-            (pending > MIN_DISTRIBUTED_AMOUNT ? pending : 0) +
-            (farmRewards[token].totalClaimedRewards)) * PRECISION;
+            (pendingReward >= MIN_DISTRIBUTED_AMOUNT ? pendingReward : 0) +
+            (rewards.totalClaimedRewards)) * PRECISION;
         // calculate block reward
-        uint256 totalBlockReward = newTotalFarmRewards - farmRewards[token].totalFarmRewards;
+        uint256 totalBlockReward = newTotalFarmRewards - rewards.totalFarmRewards;
         // calculate next cumulative reward per token
-        uint256 nextCumulativeRewardPerToken = farmRewards[token].cumulativeRewardPerToken + (totalBlockReward / totalSupply);
+        uint256 nextCumulativeRewardPerToken = rewards.cumulativeRewardPerToken + (totalBlockReward / totalSupply);
         // return claimable reward for this account
         return
-            farmRewards[token].claimableReward[account] +
-            ((balanceOf[account] * (nextCumulativeRewardPerToken - (farmRewards[token].previousCumulatedRewardPerToken[account]))) /
-                PRECISION);
+            rewards.claimableReward[account] +
+            ((balanceOf[account] * (nextCumulativeRewardPerToken - (rewards.previousCumulatedRewardPerToken[account]))) / PRECISION);
     }
 
     /**
      * @dev max amount of stkTRU than can be unstaked after current cooldown period is over
      */
     function unstakable(address staker) public view returns (uint256) {
+        uint256 stakerBalance = balanceOf[staker];
+
         if (unlockTime(staker) == type(uint256).max) {
-            return balanceOf[staker];
+            return stakerBalance;
         }
-        if (receivedDuringCooldown[staker] > balanceOf[staker]) {
+
+        if (receivedDuringCooldown[staker] > stakerBalance) {
             return 0;
         }
-        return balanceOf[staker] - receivedDuringCooldown[staker];
+        return stakerBalance - receivedDuringCooldown[staker];
     }
 
     /**
@@ -502,7 +504,7 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
     function _claim(IERC20 token) internal {
         uint256 rewardToClaim = _claimWithoutTransfer(token);
         if (rewardToClaim > 0) {
-            token.transfer(msg.sender, rewardToClaim);
+            token.safeTransfer(msg.sender, rewardToClaim);
         }
     }
 
@@ -512,9 +514,11 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
      * @param token Token to claim rewards for
      */
     function _claimWithoutTransfer(IERC20 token) internal returns (uint256) {
-        uint256 rewardToClaim = farmRewards[token].claimableReward[msg.sender];
-        farmRewards[token].totalClaimedRewards = farmRewards[token].totalClaimedRewards + rewardToClaim;
-        farmRewards[token].claimableReward[msg.sender] = 0;
+        FarmRewards storage rewards = farmRewards[token];
+
+        uint256 rewardToClaim = rewards.claimableReward[msg.sender];
+        rewards.totalClaimedRewards = rewards.totalClaimedRewards + rewardToClaim;
+        rewards.claimableReward[msg.sender] = 0;
         emit Claim(msg.sender, token, rewardToClaim);
         return rewardToClaim;
     }
@@ -547,9 +551,6 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
      * @return Reward balance for token
      */
     function rewardBalance(IERC20 token) internal view returns (uint256) {
-        if (address(token) == address(0)) {
-            return 0;
-        }
         if (token == tru) {
             return token.balanceOf(address(this)) - stakeSupply;
         }
@@ -567,8 +568,15 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
      */
     function distributeScheduledRewards() internal {
         uint32 index = nextDistributionIndex;
-        while (index < scheduledRewards.length && scheduledRewards[sortedScheduledRewardIndices[index]].timestamp < block.timestamp) {
-            undistributedTfusdRewards = undistributedTfusdRewards - (scheduledRewards[sortedScheduledRewardIndices[index]].amount);
+        uint32 batchLimitIndex = index + SCHEDULED_REWARDS_BATCH_SIZE;
+        uint32 end = batchLimitIndex < scheduledRewards.length ? batchLimitIndex : uint32(scheduledRewards.length);
+
+        while (index < end) {
+            ScheduledTfUsdRewards storage rewards = scheduledRewards[sortedScheduledRewardIndices[index]];
+            if (rewards.timestamp >= block.timestamp) {
+                break;
+            }
+            undistributedTfusdRewards = undistributedTfusdRewards - rewards.amount;
             index++;
         }
         if (nextDistributionIndex != index) {
@@ -583,18 +591,20 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
         if (token == tfusd) {
             distributeScheduledRewards();
         }
+        FarmRewards storage rewards = farmRewards[token];
+
         // calculate total rewards
-        uint256 newTotalFarmRewards = (rewardBalance(token) + farmRewards[token].totalClaimedRewards) * PRECISION;
-        if (newTotalFarmRewards == farmRewards[token].totalFarmRewards) {
+        uint256 newTotalFarmRewards = (rewardBalance(token) + rewards.totalClaimedRewards) * PRECISION;
+        if (newTotalFarmRewards == rewards.totalFarmRewards) {
             return;
         }
         // calculate block reward
-        uint256 totalBlockReward = newTotalFarmRewards - (farmRewards[token].totalFarmRewards);
+        uint256 totalBlockReward = newTotalFarmRewards - rewards.totalFarmRewards;
         // update farm rewards
-        farmRewards[token].totalFarmRewards = newTotalFarmRewards;
+        rewards.totalFarmRewards = newTotalFarmRewards;
         // if there are stakers
         if (totalSupply > 0) {
-            farmRewards[token].cumulativeRewardPerToken = farmRewards[token].cumulativeRewardPerToken + totalBlockReward / totalSupply;
+            rewards.cumulativeRewardPerToken = rewards.cumulativeRewardPerToken + totalBlockReward / totalSupply;
         }
     }
 
@@ -604,16 +614,18 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
      * @param user Account to update claimable rewards for
      */
     function updateClaimableRewards(IERC20 token, address user) internal {
+        FarmRewards storage rewards = farmRewards[token];
+
         // update claimable reward for sender
         if (balanceOf[user] > 0) {
-            farmRewards[token].claimableReward[user] =
-                farmRewards[token].claimableReward[user] +
-                (balanceOf[user] *
-                    (farmRewards[token].cumulativeRewardPerToken - farmRewards[token].previousCumulatedRewardPerToken[user])) /
+            rewards.claimableReward[user] =
+                rewards.claimableReward[user] +
+                (balanceOf[user] * (rewards.cumulativeRewardPerToken - rewards.previousCumulatedRewardPerToken[user])) /
                 PRECISION;
         }
+
         // update previous cumulative for sender
-        farmRewards[token].previousCumulatedRewardPerToken[user] = farmRewards[token].cumulativeRewardPerToken;
+        rewards.previousCumulatedRewardPerToken[user] = rewards.cumulativeRewardPerToken;
     }
 
     /**
@@ -621,11 +633,13 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
      * @param timestamp Timestamp to find next distribution index for
      */
     function findPositionForTimestamp(uint256 timestamp) internal view returns (uint32 i) {
-        for (i = nextDistributionIndex; i < sortedScheduledRewardIndices.length; i++) {
+        uint256 length = sortedScheduledRewardIndices.length;
+        for (i = nextDistributionIndex; i < length; i++) {
             if (scheduledRewards[sortedScheduledRewardIndices[i]].timestamp > timestamp) {
-                break;
+                return i;
             }
         }
+        return i;
     }
 
     /**
@@ -645,12 +659,15 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
         internal
         returns (uint256 oldWeight, uint256 newWeight)
     {
-        uint256 pos = _totalSupplyCheckpoints.length;
-        oldWeight = pos == 0 ? 0 : _totalSupplyCheckpoints[pos - 1].votes;
+        uint256 checkpointsNumber = _totalSupplyCheckpoints.length;
+        require(checkpointsNumber > 0, "StakeTruToken: total supply checkpoints not initialized");
+        Checkpoint storage lastCheckpoint = _totalSupplyCheckpoints[checkpointsNumber - 1];
+
+        oldWeight = lastCheckpoint.votes;
         newWeight = op(oldWeight, delta);
 
-        if (pos > 0 && _totalSupplyCheckpoints[pos - 1].fromBlock == block.number) {
-            _totalSupplyCheckpoints[pos - 1].votes = SafeCast.toUint96(newWeight);
+        if (lastCheckpoint.fromBlock == block.number) {
+            lastCheckpoint.votes = SafeCast.toUint96(newWeight);
         } else {
             _totalSupplyCheckpoints.push(
                 Checkpoint({fromBlock: SafeCast.toUint32(block.number), votes: SafeCast.toUint96(newWeight)})
@@ -669,7 +686,7 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
     /**
      * @dev Lookup a value in a list of (sorted) checkpoints.
      */
-    function _checkpointsLookup(Checkpoint[] storage ckpts, uint256 blockNumber) internal view returns (uint256) {
+    function _checkpointsLookup(Checkpoint[] storage checkpoints, uint256 blockNumber) internal view returns (uint256) {
         // We run a binary search to look for the earliest checkpoint taken after `blockNumber`.
         //
         // During the loop, the index of the wanted checkpoint remains in the range [low-1, high).
@@ -681,17 +698,17 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
         // Note that if the latest checkpoint available is exactly for `blockNumber`, we end up with an index that is
         // past the end of the array, so we technically don't find a checkpoint after `blockNumber`, but it works out
         // the same.
-        uint256 high = ckpts.length;
+        uint256 high = checkpoints.length;
         uint256 low = 0;
         while (low < high) {
             uint256 mid = Math.average(low, high);
-            if (ckpts[mid].fromBlock > blockNumber) {
+            if (checkpoints[mid].fromBlock > blockNumber) {
                 high = mid;
             } else {
                 low = mid + 1;
             }
         }
 
-        return high == 0 ? 0 : ckpts[high - 1].votes;
+        return high == 0 ? 0 : checkpoints[high - 1].votes;
     }
 }

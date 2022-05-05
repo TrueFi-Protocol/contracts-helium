@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.10;
+pragma solidity ^0.8.10;
 
 import {Upgradeable} from "../access/Upgradeable.sol";
 import {IValuationStrategy} from "../interfaces/IValuationStrategy.sol";
@@ -19,14 +19,13 @@ contract MultiInstrumentValuationStrategy is Upgradeable, IValuationStrategy {
         __Upgradeable_init(msg.sender);
     }
 
-    function addStrategy(IDebtInstrument instrument, IValuationStrategy strategy) external {
-        strategies[instrument] = strategy;
-        for (uint256 i; i < instruments.length; i++) {
-            if (instruments[i] == instrument) {
-                return;
-            }
+    function addStrategy(IDebtInstrument instrument, IValuationStrategy strategy) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(address(strategy) != address(0), "MultiInstrumentValuationStrategy: Cannot add address 0 strategy");
+
+        if (address(strategies[instrument]) == address(0)) {
+            instruments.push(instrument);
         }
-        instruments.push(instrument);
+        strategies[instrument] = strategy;
     }
 
     function onInstrumentFunded(
@@ -49,15 +48,11 @@ contract MultiInstrumentValuationStrategy is Upgradeable, IValuationStrategy {
         return instruments;
     }
 
-    function liquidValue(IBasePortfolio portfolio) public view returns (uint256) {
-        return portfolio.underlyingToken().balanceOf(address(portfolio));
-    }
-
     function calculateValue(IBasePortfolio portfolio) external view returns (uint256) {
         uint256 value = 0;
         for (uint256 i; i < instruments.length; i++) {
             value += strategies[instruments[i]].calculateValue(portfolio);
         }
-        return value + liquidValue(portfolio);
+        return value;
     }
 }

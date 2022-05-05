@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.10;
+pragma solidity ^0.8.10;
 
 import {IValuationStrategy} from "../interfaces/IValuationStrategy.sol";
 import {IDebtInstrument} from "../interfaces/IDebtInstrument.sol";
@@ -12,8 +12,8 @@ contract BulletLoansValuationStrategy is Upgradeable, IValuationStrategy {
     IBulletLoans public bulletLoansAddress;
     mapping(IBasePortfolio => uint256[]) public bulletLoans;
 
-    event InstrumentAdded(IBasePortfolio portfolio, IDebtInstrument instrument, uint256 instrumentId);
-    event InstrumentRemoved(IBasePortfolio portfolio, IDebtInstrument instrument, uint256 instrumentId);
+    event InstrumentAdded(IBasePortfolio indexed portfolio, IDebtInstrument indexed instrument, uint256 indexed instrumentId);
+    event InstrumentRemoved(IBasePortfolio indexed portfolio, IDebtInstrument indexed instrument, uint256 indexed instrumentId);
 
     modifier onlyPortfolioOrParentStrategy(IBasePortfolio portfolio) {
         require(

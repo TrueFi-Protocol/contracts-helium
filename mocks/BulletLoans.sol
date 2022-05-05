@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.10;
+pragma solidity ^0.8.10;
 
 import {ERC721Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -12,11 +12,11 @@ contract BulletLoans is ERC721Upgradeable, IBulletLoans {
     uint256 internal nextId;
     mapping(uint256 => LoanMetadata) public override loans;
 
-    event LoanCreated(uint256 instrumentId);
+    event LoanCreated(uint256 indexed instrumentId);
 
-    event LoanRepaid(uint256 instrumentId, uint256 amount);
+    event LoanRepaid(uint256 indexed instrumentId, uint256 amount);
 
-    event LoanStatusChanged(uint256 instrumentId, BulletLoanStatus newStatus);
+    event LoanStatusChanged(uint256 indexed instrumentId, BulletLoanStatus newStatus);
 
     constructor() initializer {
         __ERC721_init("BulletLoans", "BulletLoans");

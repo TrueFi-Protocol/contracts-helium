@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.10;
+pragma solidity ^0.8.10;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
@@ -11,6 +11,7 @@ import {IDebtInstrument} from "./interfaces/IDebtInstrument.sol";
 import {IBasePortfolio} from "./interfaces/IBasePortfolio.sol";
 import {IProtocolConfig} from "./interfaces/IProtocolConfig.sol";
 import {IValuationStrategy} from "./interfaces/IValuationStrategy.sol";
+import {ITransferStrategy} from "./interfaces/ITransferStrategy.sol";
 
 import {BasePortfolio} from "./BasePortfolio.sol";
 
@@ -26,19 +27,19 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
     IValuationStrategy public valuationStrategy;
 
     uint256 public cumulativeInterestPerShare;
-    mapping(address => uint256) public previousCumulatedInterestPerShare;
-    mapping(address => uint256) public claimableInterest;
-    mapping(address => uint256) public claimedInterest;
+    mapping(address => InterestDetails) public lenderInterestDetails;
     uint256 public totalUnclaimedInterest;
 
-    event InstrumentAdded(IDebtInstrument instrument, uint256 instrumentId);
-    event InstrumentFunded(IDebtInstrument instrument, uint256 instrumentId);
-    event InstrumentUpdated(IDebtInstrument instrument);
-    event AllowedInstrumentChanged(IDebtInstrument instrument, bool isAllowed);
-    event ValuationStrategyChanged(IValuationStrategy strategy);
-    event InstrumentRepaid(IDebtInstrument instrument, uint256 instrumentId, uint256 amount);
+    mapping(IDebtInstrument => mapping(uint256 => bool)) public isInstrumentAdded;
+
+    event InstrumentAdded(IDebtInstrument indexed instrument, uint256 indexed instrumentId);
+    event InstrumentFunded(IDebtInstrument indexed instrument, uint256 indexed instrumentId);
+    event InstrumentUpdated(IDebtInstrument indexed instrument);
+    event AllowedInstrumentChanged(IDebtInstrument indexed instrument, bool isAllowed);
+    event ValuationStrategyChanged(IValuationStrategy indexed strategy);
+    event InstrumentRepaid(IDebtInstrument indexed instrument, uint256 indexed instrumentId, uint256 amount);
     event ManagerFeeChanged(uint256 newManagerFee);
-    event InterestClaimed(address lender, uint256 amount);
+    event InterestClaimed(address indexed lender, uint256 amount);
 
     function initialize(
         IProtocolConfig _protocolConfig,
@@ -56,9 +57,9 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
         __ERC20_init(_name, _symbol);
         maxValue = _maxValue;
 
-        addStrategy(DEPOSIT_ROLE, depositStrategies, _strategies.depositStrategy);
-        addStrategy(WITHDRAW_ROLE, withdrawStrategies, _strategies.withdrawStrategy);
-        transferStrategy = _strategies.transferStrategy;
+        _grantRole(DEPOSIT_ROLE, _strategies.depositStrategy);
+        _grantRole(WITHDRAW_ROLE, _strategies.withdrawStrategy);
+        _setTransferStrategy(_strategies.transferStrategy);
         valuationStrategy = _strategies.valuationStrategy;
 
         for (uint256 i; i < _allowedInstruments.length; i++) {
@@ -66,13 +67,17 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
         }
     }
 
-    function allowInstrument(IDebtInstrument instrument, bool isAllowed) external onlyManager {
+    function allowInstrument(IDebtInstrument instrument, bool isAllowed) external onlyRole(MANAGER_ROLE) {
         isInstrumentAllowed[instrument] = isAllowed;
 
         emit AllowedInstrumentChanged(instrument, isAllowed);
     }
 
-    function addInstrument(IDebtInstrument instrument, bytes calldata issueInstrumentCalldata) external onlyManager returns (uint256) {
+    function addInstrument(IDebtInstrument instrument, bytes calldata issueInstrumentCalldata)
+        external
+        onlyRole(MANAGER_ROLE)
+        returns (uint256)
+    {
         require(isInstrumentAllowed[instrument], "FlexiblePortfolio: Instrument is not allowed");
         require(instrument.issueInstrumentSelector() == bytes4(issueInstrumentCalldata), "FlexiblePortfolio: Invalid function call");
 
@@ -83,21 +88,25 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
             instrument.underlyingToken(instrumentId) == underlyingToken,
             "FlexiblePortfolio: Cannot add instrument with different underlying token"
         );
+        isInstrumentAdded[instrument][instrumentId] = true;
         emit InstrumentAdded(instrument, instrumentId);
 
         return instrumentId;
     }
 
-    function fundInstrument(IDebtInstrument instrument, uint256 instrumentId) public onlyManager {
+    function fundInstrument(IDebtInstrument instrument, uint256 instrumentId) public onlyRole(MANAGER_ROLE) {
+        require(isInstrumentAdded[instrument][instrumentId], "FlexiblePortfolio: Instrument is not added");
         address borrower = instrument.recipient(instrumentId);
         uint256 principalAmount = instrument.principal(instrumentId);
+        require(principalAmount <= availableToBorrow(), "FlexiblePortfolio: Insufficient funds in portfolio to fund loan");
         instrument.start(instrumentId);
         valuationStrategy.onInstrumentFunded(this, instrument, instrumentId);
         underlyingToken.safeTransfer(borrower, principalAmount);
+        virtualTokenBalance -= principalAmount;
         emit InstrumentFunded(instrument, instrumentId);
     }
 
-    function updateInstrument(IDebtInstrument instrument, bytes calldata updateInstrumentCalldata) external onlyManager {
+    function updateInstrument(IDebtInstrument instrument, bytes calldata updateInstrumentCalldata) external onlyRole(MANAGER_ROLE) {
         require(isInstrumentAllowed[instrument], "FlexiblePortfolio: Instrument is not allowed");
         require(instrument.updateInstrumentSelector() == bytes4(updateInstrumentCalldata), "FlexiblePortfolio: Invalid function call");
 
@@ -106,15 +115,30 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
     }
 
     function deposit(uint256 amount, address sender) public override(IBasePortfolio, BasePortfolio) {
+        require(getRoleMemberCount(MANAGER_ROLE) == 1, "FlexiblePortfolio: Portfolio has multiple managers");
         require(amount + value() <= maxValue, "FlexiblePortfolio: Portfolio is full");
         _updateClaimableInterest(sender);
 
-        uint256 managersPart = (amount * managerFee) / 10000;
-        uint256 protocolsPart = (amount * protocolConfig.protocolFee()) / 10000;
+        uint256 managersPart = (amount * managerFee) / BASIS_PRECISION;
+        uint256 protocolsPart = (amount * protocolConfig.protocolFee()) / BASIS_PRECISION;
+        require(protocolsPart + managersPart <= amount, "FlexiblePortfolio: Fee cannot exceed deposited amount");
+
         uint256 amountToDeposit = amount - managersPart - protocolsPart;
-        underlyingToken.safeTransferFrom(sender, manager, managersPart);
-        underlyingToken.safeTransferFrom(sender, protocolConfig.protocolAddress(), protocolsPart);
+        address protocolAddress = protocolConfig.protocolAddress();
+        address manager = getRoleMember(MANAGER_ROLE, 0);
+
         super.deposit(amountToDeposit, sender);
+        underlyingToken.safeTransferFrom(sender, manager, managersPart);
+        underlyingToken.safeTransferFrom(sender, protocolAddress, protocolsPart);
+
+        emit FeePaid(sender, manager, managersPart);
+        emit FeePaid(sender, protocolAddress, protocolsPart);
+    }
+
+    function transfer(address recipient, uint256 amount) public override returns (bool) {
+        _updateClaimableInterest(msg.sender);
+        _updateClaimableInterest(recipient);
+        return super.transfer(recipient, amount);
     }
 
     function withdraw(uint256 shares, address sender) public override(IBasePortfolio, BasePortfolio) {
@@ -132,8 +156,12 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
         if (amount == 0) {
             return;
         }
-        claimedInterest[lender] += amount;
+        InterestDetails storage lenderInterest = lenderInterestDetails[lender];
+        lenderInterest.previousCumulatedInterestPerShare = cumulativeInterestPerShare;
+        lenderInterest.claimableInterest = 0;
+
         totalUnclaimedInterest -= amount;
+        virtualTokenBalance -= amount;
         underlyingToken.safeTransfer(lender, amount);
         emit InterestClaimed(lender, amount);
     }
@@ -149,6 +177,7 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
 
         _updateCumulativeInterest(interestRepaid);
         instrument.underlyingToken(instrumentId).safeTransferFrom(msg.sender, address(this), amount);
+        virtualTokenBalance += amount;
         emit InstrumentRepaid(instrument, instrumentId, amount);
     }
 
@@ -161,49 +190,61 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
         return IERC721Receiver.onERC721Received.selector;
     }
 
-    function setValuationStrategy(IValuationStrategy _valuationStrategy) external onlyManager {
+    function setValuationStrategy(IValuationStrategy _valuationStrategy) external onlyRole(MANAGER_ROLE) {
         valuationStrategy = _valuationStrategy;
         emit ValuationStrategyChanged(_valuationStrategy);
     }
 
     function withdrawableInterest(address lender) public view returns (uint256) {
-        return
-            claimableInterest[lender] +
-            (balanceOf(lender) * (cumulativeInterestPerShare - previousCumulatedInterestPerShare[lender])) /
-            PRECISION -
-            claimedInterest[lender];
+        return lenderInterestDetails[lender].claimableInterest + _claimableInterestChangeSinceLastUpdate(lender);
     }
 
     function value() public view override(BasePortfolio, IBasePortfolio) returns (uint256) {
         if (address(valuationStrategy) == address(0)) {
             return 0;
         }
-        return valuationStrategy.calculateValue(this) - totalUnclaimedInterest;
+        return virtualTokenBalance + valuationStrategy.calculateValue(this) - totalUnclaimedInterest;
     }
 
-    function setManagerFee(uint256 newManagerFee) external onlyManager {
+    function liquidValue() public view returns (uint256) {
+        return underlyingToken.balanceOf(address(this)) - totalUnclaimedInterest;
+    }
+
+    function setManagerFee(uint256 newManagerFee) external onlyRole(MANAGER_ROLE) {
         managerFee = newManagerFee;
         emit ManagerFeeChanged(newManagerFee);
     }
 
-    function cancelInstrument(IDebtInstrument instrument, uint256 instrumentId) external onlyManager {
+    function cancelInstrument(IDebtInstrument instrument, uint256 instrumentId) external onlyRole(MANAGER_ROLE) {
         instrument.cancel(instrumentId);
         valuationStrategy.onInstrumentUpdated(this, instrument, instrumentId);
     }
 
-    function markInstrumentAsDefaulted(IDebtInstrument instrument, uint256 instrumentId) external onlyManager {
-        return instrument.markAsDefaulted(instrumentId);
+    function markInstrumentAsDefaulted(IDebtInstrument instrument, uint256 instrumentId) external onlyRole(MANAGER_ROLE) {
+        instrument.markAsDefaulted(instrumentId);
+        valuationStrategy.onInstrumentUpdated(this, instrument, instrumentId);
+    }
+
+    function _claimableInterestChangeSinceLastUpdate(address lender) internal view returns (uint256) {
+        return
+            (balanceOf(lender) * (cumulativeInterestPerShare - lenderInterestDetails[lender].previousCumulatedInterestPerShare)) /
+            PRECISION;
     }
 
     function _updateCumulativeInterest(uint256 interestRepaid) internal {
-        totalUnclaimedInterest += interestRepaid;
         if (interestRepaid > 0 && totalSupply() > 0) {
+            totalUnclaimedInterest += interestRepaid;
             cumulativeInterestPerShare += (interestRepaid * PRECISION) / totalSupply();
         }
     }
 
     function _updateClaimableInterest(address lender) internal {
-        claimableInterest[lender] = withdrawableInterest(lender);
-        previousCumulatedInterestPerShare[lender] = cumulativeInterestPerShare;
+        InterestDetails storage lenderInterest = lenderInterestDetails[lender];
+        lenderInterest.claimableInterest += _claimableInterestChangeSinceLastUpdate(lender);
+        lenderInterest.previousCumulatedInterestPerShare = cumulativeInterestPerShare;
+    }
+
+    function availableToBorrow() public view returns (uint256) {
+        return virtualTokenBalance - totalUnclaimedInterest;
     }
 }

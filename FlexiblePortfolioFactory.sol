@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.10;
+pragma solidity ^0.8.10;
 
 import {IFlexiblePortfolio} from "./interfaces/IFlexiblePortfolio.sol";
 import {IERC20WithDecimals} from "./interfaces/IERC20WithDecimals.sol";

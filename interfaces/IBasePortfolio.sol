@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.10;
+pragma solidity ^0.8.10;
 
+import {IAccessControlEnumerableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/IAccessControlEnumerableUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IManageable} from "../access/interfaces/IManageable.sol";
 
-interface IBasePortfolio is IManageable {
+interface IBasePortfolio is IAccessControlEnumerableUpgradeable {
+    function MANAGER_ROLE() external view returns (bytes32);
+
     function endDate() external view returns (uint256);
 
     function underlyingToken() external view returns (IERC20);

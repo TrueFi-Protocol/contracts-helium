@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.10;
+pragma solidity ^0.8.10;
 
 import {IValuationStrategy} from "../interfaces/IValuationStrategy.sol";
 import {IDebtInstrument} from "../interfaces/IDebtInstrument.sol";
@@ -8,12 +8,16 @@ import {Upgradeable} from "../access/Upgradeable.sol";
 import {IBasePortfolio} from "../interfaces/IBasePortfolio.sol";
 
 contract FixedInterestOnlyLoansValuationStrategy is Upgradeable, IValuationStrategy {
+    struct PortfolioDetails {
+        uint256 value;
+        mapping(uint256 => bool) isLoanActive;
+    }
+
     address public parentStrategy;
     IFixedInterestOnlyLoans public fixedInterestOnlyLoansAddress;
-    mapping(IBasePortfolio => uint256) public value;
-    mapping(IBasePortfolio => mapping(uint256 => bool)) public activeLoans;
+    mapping(IBasePortfolio => PortfolioDetails) public portfolioDetails;
 
-    event InstrumentFunded(IBasePortfolio portfolio, IDebtInstrument instrument, uint256 instrumentId);
+    event InstrumentFunded(IBasePortfolio indexed portfolio, IDebtInstrument indexed instrument, uint256 indexed instrumentId);
 
     modifier onlyPortfolioOrParentStrategy(IBasePortfolio portfolio) {
         require(
@@ -35,8 +39,11 @@ contract FixedInterestOnlyLoansValuationStrategy is Upgradeable, IValuationStrat
         uint256 instrumentId
     ) external onlyPortfolioOrParentStrategy(portfolio) {
         require(instrument == fixedInterestOnlyLoansAddress, "FixedInterestOnlyLoansValuationStrategy: Unexpected instrument");
-        activeLoans[portfolio][instrumentId] = true;
-        value[portfolio] += instrument.principal(instrumentId);
+
+        PortfolioDetails storage _portfolioDetails = portfolioDetails[portfolio];
+        _portfolioDetails.isLoanActive[instrumentId] = true;
+        _portfolioDetails.value += instrument.principal(instrumentId);
+
         emit InstrumentFunded(portfolio, instrument, instrumentId);
     }
 
@@ -54,18 +61,23 @@ contract FixedInterestOnlyLoansValuationStrategy is Upgradeable, IValuationStrat
         IDebtInstrument instrument,
         uint256 instrumentId
     ) private {
-        bool isActive = activeLoans[portfolio][instrumentId];
+        PortfolioDetails storage _portfolioDetails = portfolioDetails[portfolio];
+        bool isActive = _portfolioDetails.isLoanActive[instrumentId];
         if (!isActive) {
             return;
         }
         FixedInterestOnlyLoanStatus status = IFixedInterestOnlyLoans(address(instrument)).status(instrumentId);
         if (status != FixedInterestOnlyLoanStatus.Started) {
-            activeLoans[portfolio][instrumentId] = false;
-            value[portfolio] -= instrument.principal(instrumentId);
+            _portfolioDetails.isLoanActive[instrumentId] = false;
+            _portfolioDetails.value -= instrument.principal(instrumentId);
         }
     }
 
-    function calculateValue(IBasePortfolio portfolio) public view returns (uint256) {
-        return value[portfolio];
+    function calculateValue(IBasePortfolio portfolio) external view returns (uint256) {
+        return portfolioDetails[portfolio].value;
+    }
+
+    function isLoanActive(IBasePortfolio portfolio, uint256 instrumentId) external view returns (bool) {
+        return portfolioDetails[portfolio].isLoanActive[instrumentId];
     }
 }

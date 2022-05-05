@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.10;
+pragma solidity ^0.8.10;
 
-import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import {Manageable} from "./access/Manageable.sol";
 import {Upgradeable} from "./access/Upgradeable.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
@@ -13,25 +11,28 @@ import {IBasePortfolio} from "./interfaces/IBasePortfolio.sol";
 import {IERC20WithDecimals} from "./interfaces/IERC20WithDecimals.sol";
 import {ITransferStrategy} from "./interfaces/ITransferStrategy.sol";
 
-abstract contract BasePortfolio is IBasePortfolio, ERC20Upgradeable, Upgradeable, Manageable, AccessControlUpgradeable {
+abstract contract BasePortfolio is IBasePortfolio, ERC20Upgradeable, Upgradeable {
     using SafeERC20 for IERC20;
 
-    event Deposited(uint256 shares, uint256 amount, address sender);
-    event Withdrawn(uint256 shares, uint256 amount, address sender);
+    event Deposited(uint256 shares, uint256 amount, address indexed sender);
+    event Withdrawn(uint256 shares, uint256 amount, address indexed sender);
+    event TransferStrategyChanged(address indexed oldStrategy, address indexed newStrategy);
+    event FeePaid(address indexed sender, address indexed recipient, uint256 amount);
 
+    bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
     bytes32 public constant DEPOSIT_ROLE = keccak256("DEPOSIT_ROLE");
     bytes32 public constant WITHDRAW_ROLE = keccak256("WITHDRAW_ROLE");
-    bytes32 public constant TRANSFER_ROLE = keccak256("TRANSFER_ROLE");
+
+    uint256 public constant BASIS_PRECISION = 10000;
 
     uint256 public endDate;
     IERC20 public underlyingToken;
-    uint256 public underlyingTokenDecimals;
+    uint8 public underlyingTokenDecimals;
 
-    address[] public depositStrategies;
-    address[] public withdrawStrategies;
     address public transferStrategy;
     IProtocolConfig public protocolConfig;
     uint256 public managerFee;
+    uint256 public virtualTokenBalance;
 
     function __BasePortfolio_init(
         IProtocolConfig _protocolConfig,
@@ -40,9 +41,11 @@ abstract contract BasePortfolio is IBasePortfolio, ERC20Upgradeable, Upgradeable
         address _manager,
         uint256 _managerFee
     ) internal initializer {
-        __Manageable_init(_manager);
+        require(_duration > 0, "BasePortfolio: Cannot have zero duration");
         __Upgradeable_init(_protocolConfig.protocolAddress());
-        AccessControlUpgradeable.__AccessControl_init();
+        _grantRole(MANAGER_ROLE, _manager);
+        _setRoleAdmin(DEPOSIT_ROLE, MANAGER_ROLE);
+        _setRoleAdmin(WITHDRAW_ROLE, MANAGER_ROLE);
 
         protocolConfig = _protocolConfig;
         endDate = block.timestamp + _duration;
@@ -53,86 +56,26 @@ abstract contract BasePortfolio is IBasePortfolio, ERC20Upgradeable, Upgradeable
         }
     }
 
-    function getDepositStrategies() public view returns (address[] memory) {
-        return depositStrategies;
-    }
-
-    function getWithdrawStrategies() public view returns (address[] memory) {
-        return withdrawStrategies;
-    }
-
-    function addStrategy(
-        bytes32 role,
-        address[] storage strategies,
-        address strategy
-    ) internal {
-        _grantRole(role, strategy);
-        strategies.push(strategy);
-    }
-
-    function removeStrategy(
-        bytes32 role,
-        address[] storage strategies,
-        address strategy
-    ) internal {
-        _revokeRole(role, strategy);
-        for (uint256 i = 0; i < strategies.length; i++) {
-            if (strategies[i] == strategy) {
-                delete strategies[i];
-                if (i <= strategies.length - 1) {
-                    strategies[i] = strategies[strategies.length - 1];
-                }
-                strategies.pop();
-            }
-        }
-    }
-
-    function addDepositStrategy(address _depositStrategy) external {
-        addStrategy(DEPOSIT_ROLE, depositStrategies, _depositStrategy);
-    }
-
-    function removeDepositStrategy(address _depositStrategy) public virtual {
-        removeStrategy(DEPOSIT_ROLE, depositStrategies, _depositStrategy);
-    }
-
-    function addWithdrawStrategy(address _withdrawStrategy) external {
-        addStrategy(WITHDRAW_ROLE, withdrawStrategies, _withdrawStrategy);
-    }
-
-    function removeWithdrawStrategy(address _withdrawStrategy) public virtual {
-        removeStrategy(WITHDRAW_ROLE, withdrawStrategies, _withdrawStrategy);
-    }
-
-    function setTransferStrategy(address _transferStrategy) public {
-        if (transferStrategy != address(0)) {
-            _revokeRole(TRANSFER_ROLE, transferStrategy);
-        }
-        if (_transferStrategy != address(0)) {
-            _grantRole(TRANSFER_ROLE, _transferStrategy);
-        }
-        transferStrategy = _transferStrategy;
+    function setTransferStrategy(address _transferStrategy) public onlyRole(MANAGER_ROLE) {
+        _setTransferStrategy(_transferStrategy);
     }
 
     function deposit(uint256 amount, address sender) public virtual onlyRole(DEPOSIT_ROLE) {
+        require(amount >= 10**underlyingTokenDecimals, "BasePortfolio: Deposit amount is less than one underlying token");
         uint256 sharesToMint = calculateSharesToMint(amount);
         _mint(sender, sharesToMint);
+        virtualTokenBalance += amount;
         underlyingToken.safeTransferFrom(sender, address(this), amount);
         emit Deposited(sharesToMint, amount, sender);
     }
 
     function withdraw(uint256 shares, address sender) public virtual onlyRole(WITHDRAW_ROLE) {
         uint256 amountToWithdraw = calculateAmountToWithdraw(shares);
+        require(amountToWithdraw <= virtualTokenBalance, "BasePortfolio: Amount exceeds pool balance");
+        virtualTokenBalance -= amountToWithdraw;
         _burn(sender, shares);
         underlyingToken.safeTransfer(sender, amountToWithdraw);
         emit Withdrawn(shares, amountToWithdraw, sender);
-    }
-
-    function transfer(address recipient, uint256 amount) public override returns (bool) {
-        if (transferStrategy == address(0) || ITransferStrategy(transferStrategy).canTransfer(msg.sender, recipient, amount)) {
-            _transfer(msg.sender, recipient, amount);
-            return true;
-        }
-        return false;
     }
 
     function calculateSharesToMint(uint256 depositedAmount) public view virtual returns (uint256) {
@@ -149,6 +92,27 @@ abstract contract BasePortfolio is IBasePortfolio, ERC20Upgradeable, Upgradeable
     }
 
     function value() public view virtual returns (uint256) {
-        return underlyingToken.balanceOf(address(this));
+        return virtualTokenBalance;
+    }
+
+    function _setTransferStrategy(address _transferStrategy) internal {
+        address oldTransferStrategy = transferStrategy;
+        transferStrategy = _transferStrategy;
+
+        emit TransferStrategyChanged(oldTransferStrategy, _transferStrategy);
+    }
+
+    function _transfer(
+        address sender,
+        address recipient,
+        uint256 amount
+    ) internal override {
+        if (transferStrategy != address(0)) {
+            require(
+                ITransferStrategy(transferStrategy).canTransfer(sender, recipient, amount),
+                "BasePortfolio: This transfer not permitted"
+            );
+        }
+        super._transfer(sender, recipient, amount);
     }
 }

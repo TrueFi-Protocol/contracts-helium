@@ -12,7 +12,7 @@
 pragma solidity ^0.8.10;
 
 import {ERC20} from "./common/ERC20.sol";
-import {IVoteToken} from "./interface/IVoteToken.sol";
+import {IVoteToken} from "./interfaces/IVoteToken.sol";
 
 /**
  * @title VoteToken
@@ -44,13 +44,13 @@ abstract contract VoteToken is ERC20, IVoteToken {
         bytes32 r,
         bytes32 s
     ) public override {
-        bytes32 domainSeparator = keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256(bytes(name())), getChainId(), address(this)));
+        require(block.timestamp <= expiry, "TrustToken::delegateBySig: signature expired");
+        bytes32 domainSeparator = keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256(bytes(name())), block.chainid, address(this)));
         bytes32 structHash = keccak256(abi.encode(DELEGATION_TYPEHASH, delegatee, nonce, expiry));
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
         address signatory = ecrecover(digest, v, r, s);
         require(signatory != address(0), "TrustToken::delegateBySig: invalid signature");
         require(nonce == nonces[signatory]++, "TrustToken::delegateBySig: invalid nonce");
-        require(block.timestamp <= expiry, "TrustToken::delegateBySig: signature expired");
         return _delegate(signatory, delegatee);
     }
 
@@ -73,35 +73,37 @@ abstract contract VoteToken is ERC20, IVoteToken {
     function getPriorVotes(address account, uint256 blockNumber) public view virtual override returns (uint96) {
         require(blockNumber < block.number, "TrustToken::getPriorVotes: not yet determined");
 
-        uint32 nCheckpoints = numCheckpoints[account];
-        if (nCheckpoints == 0) {
+        uint32 checkpointsNumber = numCheckpoints[account];
+        if (checkpointsNumber == 0) {
             return 0;
         }
 
+        mapping(uint32 => Checkpoint) storage userCheckpoints = checkpoints[account];
+
         // First check most recent balance
-        if (checkpoints[account][nCheckpoints - 1].fromBlock <= blockNumber) {
-            return checkpoints[account][nCheckpoints - 1].votes;
+        if (userCheckpoints[checkpointsNumber - 1].fromBlock <= blockNumber) {
+            return userCheckpoints[checkpointsNumber - 1].votes;
         }
 
         // Next check implicit zero balance
-        if (checkpoints[account][0].fromBlock > blockNumber) {
+        if (userCheckpoints[0].fromBlock > blockNumber) {
             return 0;
         }
 
         uint32 lower = 0;
-        uint32 upper = nCheckpoints - 1;
+        uint32 upper = checkpointsNumber - 1;
         while (upper > lower) {
             uint32 center = upper - (upper - lower) / 2; // ceil, avoiding overflow
-            Checkpoint memory cp = checkpoints[account][center];
-            if (cp.fromBlock == blockNumber) {
-                return cp.votes;
-            } else if (cp.fromBlock < blockNumber) {
+            Checkpoint memory checkpoint = userCheckpoints[center];
+            if (checkpoint.fromBlock == blockNumber) {
+                return checkpoint.votes;
+            } else if (checkpoint.fromBlock < blockNumber) {
                 lower = center;
             } else {
                 upper = center - 1;
             }
         }
-        return checkpoints[account][lower].votes;
+        return userCheckpoints[lower].votes;
     }
 
     /**
@@ -147,23 +149,25 @@ abstract contract VoteToken is ERC20, IVoteToken {
      * @dev internal function to move delegates between accounts
      */
     function _moveDelegates(
-        address srcRep,
-        address dstRep,
+        address source,
+        address destination,
         uint96 amount
     ) internal {
-        if (srcRep != dstRep && amount > 0) {
-            if (srcRep != address(0)) {
-                uint32 srcRepNum = numCheckpoints[srcRep];
-                uint96 srcRepOld = srcRepNum > 0 ? checkpoints[srcRep][srcRepNum - 1].votes : 0;
-                uint96 srcRepNew = srcRepOld - amount;
-                _writeCheckpoint(srcRep, srcRepNum, srcRepOld, srcRepNew);
+        if (source != destination && amount > 0) {
+            if (source != address(0)) {
+                uint32 sourceCheckpointsNumber = numCheckpoints[source];
+                uint96 sourceOldVotes = sourceCheckpointsNumber > 0 ? checkpoints[source][sourceCheckpointsNumber - 1].votes : 0;
+                uint96 sourceNewVotes = sourceOldVotes - amount;
+                _writeCheckpoint(source, sourceCheckpointsNumber, sourceOldVotes, sourceNewVotes);
             }
 
-            if (dstRep != address(0)) {
-                uint32 dstRepNum = numCheckpoints[dstRep];
-                uint96 dstRepOld = dstRepNum > 0 ? checkpoints[dstRep][dstRepNum - 1].votes : 0;
-                uint96 dstRepNew = dstRepOld + amount;
-                _writeCheckpoint(dstRep, dstRepNum, dstRepOld, dstRepNew);
+            if (destination != address(0)) {
+                uint32 destinationCheckpointsNumber = numCheckpoints[destination];
+                uint96 destinationOldVotes = destinationCheckpointsNumber > 0
+                    ? checkpoints[destination][destinationCheckpointsNumber - 1].votes
+                    : 0;
+                uint96 destinationNewVotes = destinationOldVotes + amount;
+                _writeCheckpoint(destination, destinationCheckpointsNumber, destinationOldVotes, destinationNewVotes);
             }
         }
     }
@@ -203,16 +207,5 @@ abstract contract VoteToken is ERC20, IVoteToken {
     function safe96(uint256 n, string memory errorMessage) internal pure returns (uint96) {
         require(n < 2**96, errorMessage);
         return uint96(n);
-    }
-
-    /**
-     * @dev internal function to get chain ID
-     */
-    function getChainId() internal view returns (uint256) {
-        uint256 chainId;
-        assembly {
-            chainId := chainid()
-        }
-        return chainId;
     }
 }

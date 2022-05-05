@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.10;
+pragma solidity ^0.8.10;
 
 import {StkTruToken} from "../StkTruToken.sol";
+import {ITrueDistributor} from "../interfaces/ITrueDistributor.sol";
+import {VoteToken} from "../VoteToken.sol";
 
 contract MockStkTruToken is StkTruToken {
     constructor() StkTruToken() {}
@@ -17,5 +19,17 @@ contract MockStkTruToken is StkTruToken {
     function doubleMint(address account, uint256 amount) public {
         mint(account, amount);
         mint(account, amount);
+    }
+
+    function setDistributor(ITrueDistributor _distributor) public {
+        distributor = _distributor;
+    }
+
+    function mintWithoutCheckpoint(address account, uint256 amount) public {
+        VoteToken._mint(account, amount);
+    }
+
+    function totalSupplyCheckpoints(uint256 index) public view returns (Checkpoint memory) {
+        return _totalSupplyCheckpoints[index];
     }
 }

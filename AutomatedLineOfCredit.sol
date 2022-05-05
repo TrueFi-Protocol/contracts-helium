@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.10;
+pragma solidity ^0.8.10;
 
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -15,6 +15,7 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
 
     uint256 public maxSize;
     uint256 public borrowedAmount;
+    uint256 public accruedInterest;
     address public borrower;
     InterestRateParameters public interestRateParameters;
     uint256 private lastUtilizationUpdateTime;
@@ -23,6 +24,8 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
     event Borrowed(uint256 amount);
 
     event Repaid(uint256 amount);
+
+    event MaxSizeChanged(uint256 newMaxSize);
 
     function initialize(
         IProtocolConfig _protocolConfig,
@@ -45,22 +48,23 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
         __BasePortfolio_init(_protocolConfig, _duration, _underlyingToken, _borrower, 0);
         __ERC20_init(name, symbol);
         borrower = _borrower;
-        managerFee = 0;
         interestRateParameters = _interestRateParameters;
         maxSize = _maxSize;
         premiumFee = _protocolConfig.automatedLineOfCreditPremiumFee();
-
-        addStrategy(DEPOSIT_ROLE, depositStrategies, _depositStrategy);
-        addStrategy(WITHDRAW_ROLE, withdrawStrategies, _withdrawStrategy);
-        setTransferStrategy(_transferStrategy);
+        _grantRole(DEPOSIT_ROLE, _depositStrategy);
+        _grantRole(WITHDRAW_ROLE, _withdrawStrategy);
+        _setTransferStrategy(_transferStrategy);
     }
 
     function borrow(uint256 amount) public {
-        require(msg.sender == borrower, "AutomatedLineOfCredit: Unauthorized borrower");
+        require(msg.sender == borrower, "AutomatedLineOfCredit: Caller is not the borrower");
+        require(address(this) != borrower, "AutomatedLineOfCredit: Pool cannot borrow from itself");
         require(block.timestamp < endDate, "AutomatedLineOfCredit: Pool end date has elapsed");
+        require(amount <= virtualTokenBalance, "AutomatedLineOfCredit: Amount exceeds pool balance");
 
-        borrowedAmount += amount + unincludedInterest();
-        lastUtilizationUpdateTime = block.timestamp;
+        updateAccruedInterest();
+        borrowedAmount += amount;
+        virtualTokenBalance -= amount;
 
         underlyingToken.safeTransfer(borrower, amount);
 
@@ -72,28 +76,48 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
     }
 
     function repay(uint256 amount) public {
+        require(msg.sender == borrower, "AutomatedLineOfCredit: Caller is not the borrower");
         require(msg.sender != address(this), "AutomatedLineOfCredit: Pool cannot repay itself");
-        borrowedAmount = totalDebt() - amount;
-        lastUtilizationUpdateTime = block.timestamp;
+        require(borrower != address(this), "AutomatedLineOfCredit: Pool cannot repay itself");
 
+        updateAccruedInterest();
+
+        if (amount > accruedInterest) {
+            uint256 repaidPrincipal = amount - accruedInterest;
+            accruedInterest = 0;
+            borrowedAmount -= repaidPrincipal;
+        } else {
+            accruedInterest -= amount;
+        }
+
+        _repay(amount);
+    }
+
+    function repayInFull() external {
+        require(msg.sender == borrower, "AutomatedLineOfCredit: Caller is not the borrower");
+        require(msg.sender != address(this), "AutomatedLineOfCredit: Pool cannot repay itself");
+        require(borrower != address(this), "AutomatedLineOfCredit: Pool cannot repay itself");
+        uint256 _totalDebt = totalDebt();
+
+        borrowedAmount = 0;
+        accruedInterest = 0;
+        lastUtilizationUpdateTime = 0;
+
+        _repay(_totalDebt);
+    }
+
+    function _repay(uint256 amount) internal {
+        virtualTokenBalance += amount;
         underlyingToken.safeTransferFrom(borrower, address(this), amount);
 
         emit Repaid(amount);
     }
 
-    function repayInFull() external {
-        require(msg.sender != address(this), "AutomatedLineOfCredit: Pool cannot repay itself");
-        uint256 _totalDebt = totalDebt();
-        borrowedAmount = 0;
-        lastUtilizationUpdateTime = block.timestamp;
-
-        underlyingToken.safeTransferFrom(borrower, address(this), _totalDebt);
-    }
-
     function deposit(uint256 amount, address sender) public override {
+        require(sender != address(this), "AutomatedLineOfCredit: Pool cannot deposit to itself");
         require(block.timestamp < endDate, "AutomatedLineOfCredit: Pool end date has elapsed");
         require((value() + amount) <= maxSize, "AutomatedLineOfCredit: Deposit would cause pool to exceed max size");
-        updateBorrowedAmount();
+        updateAccruedInterest();
         super.deposit(amount, sender);
     }
 
@@ -101,25 +125,34 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
         require(msg.sender != address(this), "AutomatedLineOfCredit: Pool cannot withdraw from itself");
         require(msg.sender != sender, "AutomatedLineOfCredit: Pool cannot withdraw from itself");
         require(sender != address(this), "AutomatedLineOfCredit: Pool cannot withdraw from itself");
-        updateBorrowedAmount();
+
+        updateAccruedInterest();
+
         uint256 _sharesValue = sharesValue(shares);
+        require(_sharesValue <= virtualTokenBalance, "AutomatedLineOfCredit: Amount exceeds pool balance");
+        virtualTokenBalance -= _sharesValue;
         uint256 feeAmount = calculateFeeAmount(_sharesValue);
         uint256 amountToWithdraw = _sharesValue - feeAmount;
 
         _burn(sender, shares);
 
+        address protocolAddress = protocolConfig.protocolAddress();
         underlyingToken.safeTransfer(sender, amountToWithdraw);
-        underlyingToken.safeTransfer(protocolConfig.protocolAddress(), feeAmount);
+        underlyingToken.safeTransfer(protocolAddress, feeAmount);
 
         emit Withdrawn(shares, amountToWithdraw, sender);
+        emit FeePaid(sender, protocolAddress, feeAmount);
     }
 
     function unincludedInterest() internal view returns (uint256) {
-        return (interestRate() * borrowedAmount * (block.timestamp - lastUtilizationUpdateTime)) / YEAR / 10000;
+        return (interestRate() * borrowedAmount * (block.timestamp - lastUtilizationUpdateTime)) / YEAR / BASIS_PRECISION;
     }
 
     function interestRate() public view returns (uint256) {
-        uint256 currentUtilization = _utilization(borrowedAmount);
+        return _interestRate(_utilization(borrowedAmount));
+    }
+
+    function _interestRate(uint256 currentUtilization) internal view returns (uint256) {
         (
             uint32 minInterestRate,
             uint32 minInterestRateUtilizationThreshold,
@@ -130,8 +163,7 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
         ) = getInterestRateParameters();
         if (currentUtilization <= minInterestRateUtilizationThreshold) {
             return minInterestRate;
-        }
-        if (currentUtilization <= optimumUtilization) {
+        } else if (currentUtilization <= optimumUtilization) {
             return
                 solveLinear(
                     currentUtilization,
@@ -140,8 +172,7 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
                     optimumUtilization,
                     optimumInterestRate
                 );
-        }
-        if (currentUtilization <= maxInterestRateUtilizationThreshold) {
+        } else if (currentUtilization <= maxInterestRateUtilizationThreshold) {
             return
                 solveLinear(
                     currentUtilization,
@@ -150,13 +181,14 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
                     maxInterestRateUtilizationThreshold,
                     maxInterestRate
                 );
+        } else {
+            return maxInterestRate;
         }
-        return maxInterestRate;
     }
 
-    function setMaxSize(uint256 _maxSize) external {
-        require(msg.sender == manager, "AutomatedLineOfCredit: Only manager can update max size");
+    function setMaxSize(uint256 _maxSize) external onlyRole(MANAGER_ROLE) {
         maxSize = _maxSize;
+        emit MaxSizeChanged(_maxSize);
     }
 
     function utilization() external view returns (uint256) {
@@ -164,7 +196,7 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
     }
 
     function calculateAmountToWithdraw(uint256 sharesAmount) public view virtual override returns (uint256) {
-        return (sharesValue(sharesAmount) * (10000 - totalFee())) / 10000;
+        return (sharesValue(sharesAmount) * (BASIS_PRECISION - totalFee())) / BASIS_PRECISION;
     }
 
     function sharesValue(uint256 sharesAmount) public view virtual returns (uint256) {
@@ -172,15 +204,16 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
     }
 
     function calculateFeeAmount(uint256 _sharesValue) internal view virtual returns (uint256) {
-        return (_sharesValue * totalFee()) / 10000;
+        return (_sharesValue * totalFee()) / BASIS_PRECISION;
     }
 
     function totalFee() internal view virtual returns (uint256) {
-        return protocolConfig.protocolFee() + managerFee + premiumFee;
+        uint256 _totalFee = protocolConfig.protocolFee() + managerFee + premiumFee;
+        return _totalFee < BASIS_PRECISION ? _totalFee : BASIS_PRECISION;
     }
 
     function totalDebt() public view returns (uint256) {
-        return borrowedAmount + unincludedInterest();
+        return borrowedAmount + accruedInterest + unincludedInterest();
     }
 
     function solveLinear(
@@ -219,26 +252,26 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
     function getStatus() external view returns (AutomatedLineOfCreditStatus) {
         if (block.timestamp >= endDate) {
             return AutomatedLineOfCreditStatus.Closed;
-        }
-        if (value() >= maxSize) {
+        } else if (value() >= maxSize) {
             return AutomatedLineOfCreditStatus.Full;
+        } else {
+            return AutomatedLineOfCreditStatus.Open;
         }
-        return AutomatedLineOfCreditStatus.Open;
     }
 
-    function updateBorrowedAmount() internal {
-        borrowedAmount = totalDebt();
+    function updateAccruedInterest() internal {
+        accruedInterest += unincludedInterest();
         lastUtilizationUpdateTime = block.timestamp;
     }
 
     function _value(uint256 debt) internal view returns (uint256) {
-        return underlyingToken.balanceOf(address(this)) + debt;
+        return virtualTokenBalance + debt;
     }
 
     function _utilization(uint256 debt) internal view returns (uint256) {
         if (debt == 0) {
             return 0;
         }
-        return (debt * 10000) / _value(debt);
+        return (debt * BASIS_PRECISION) / _value(debt);
     }
 }

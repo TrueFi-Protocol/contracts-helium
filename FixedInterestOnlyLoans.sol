@@ -1,19 +1,21 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.10;
+pragma solidity ^0.8.10;
 
+import {AccessControlEnumerableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/IERC165Upgradeable.sol";
 import {ERC721Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import {Upgradeable} from "./access/Upgradeable.sol";
 import {IFixedInterestOnlyLoans, FixedInterestOnlyLoanStatus} from "./interfaces/IFixedInterestOnlyLoans.sol";
 
 contract FixedInterestOnlyLoans is ERC721Upgradeable, Upgradeable, IFixedInterestOnlyLoans {
-    LoanMetadata[] public loans;
+    LoanMetadata[] internal loans;
 
-    event LoanIssued(uint256 instrumentId);
-    event LoanStatusChanged(uint256 instrumentId, FixedInterestOnlyLoanStatus newStatus);
-    event GracePeriodUpdated(uint256 instrumentId, uint32 newGracePeriod);
-    event Repaid(uint256 instrumentId, uint256 amount);
-    event Canceled(uint256 instrumentId);
+    event LoanIssued(uint256 indexed instrumentId);
+    event LoanStatusChanged(uint256 indexed instrumentId, FixedInterestOnlyLoanStatus newStatus);
+    event GracePeriodUpdated(uint256 indexed instrumentId, uint32 newGracePeriod);
+    event Repaid(uint256 indexed instrumentId, uint256 amount);
+    event Canceled(uint256 indexed instrumentId);
 
     modifier onlyLoanOwner(uint256 instrumentId) {
         require(msg.sender == ownerOf(instrumentId), "FixedInterestOnlyLoans: Not a loan owner");
@@ -30,6 +32,15 @@ contract FixedInterestOnlyLoans is ERC721Upgradeable, Upgradeable, IFixedInteres
         __ERC721_init("FixedInterestOnlyLoans", "FIOL");
     }
 
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(IERC165Upgradeable, ERC721Upgradeable, AccessControlEnumerableUpgradeable)
+        returns (bool)
+    {
+        return super.supportsInterface(interfaceId);
+    }
+
     function principal(uint256 instrumentId) external view returns (uint256) {
         return loans[instrumentId].principal;
     }
@@ -42,8 +53,24 @@ contract FixedInterestOnlyLoans is ERC721Upgradeable, Upgradeable, IFixedInteres
         return loans[instrumentId].recipient;
     }
 
+    function canBeRepaidAfterDefault(uint256 instrumentId) external view returns (bool) {
+        return loans[instrumentId].canBeRepaidAfterDefault;
+    }
+
     function status(uint256 instrumentId) external view returns (FixedInterestOnlyLoanStatus) {
         return loans[instrumentId].status;
+    }
+
+    function periodPayment(uint256 instrumentId) external view returns (uint256) {
+        return loans[instrumentId].periodPayment;
+    }
+
+    function periodCount(uint256 instrumentId) external view returns (uint16) {
+        return loans[instrumentId].periodCount;
+    }
+
+    function periodDuration(uint256 instrumentId) external view returns (uint32) {
+        return loans[instrumentId].periodDuration;
     }
 
     function endDate(uint256 instrumentId) external view returns (uint256) {
@@ -79,7 +106,7 @@ contract FixedInterestOnlyLoans is ERC721Upgradeable, Upgradeable, IFixedInteres
         address _recipient,
         uint32 _gracePeriod,
         bool _canBeRepaidAfterDefault
-    ) external returns (uint256) {
+    ) public virtual returns (uint256) {
         require(_recipient != address(0), "FixedInterestOnlyLoans: recipient cannot be the zero address");
 
         uint32 loanDuration = _periodCount * _periodDuration;
@@ -112,7 +139,7 @@ contract FixedInterestOnlyLoans is ERC721Upgradeable, Upgradeable, IFixedInteres
         return id;
     }
 
-    function acceptLoan(uint256 instrumentId) external onlyLoanStatus(instrumentId, FixedInterestOnlyLoanStatus.Created) {
+    function acceptLoan(uint256 instrumentId) public virtual onlyLoanStatus(instrumentId, FixedInterestOnlyLoanStatus.Created) {
         require(msg.sender == loans[instrumentId].recipient, "FixedInterestOnlyLoans: Not a borrower");
         _changeLoanStatus(instrumentId, FixedInterestOnlyLoanStatus.Accepted);
     }
@@ -125,10 +152,10 @@ contract FixedInterestOnlyLoans is ERC721Upgradeable, Upgradeable, IFixedInteres
         LoanMetadata storage loan = loans[instrumentId];
         _changeLoanStatus(instrumentId, FixedInterestOnlyLoanStatus.Started);
 
-        uint32 periodDuration = loan.periodDuration;
-        uint40 loanDuration = loan.periodCount * periodDuration;
+        uint32 _periodDuration = loan.periodDuration;
+        uint40 loanDuration = loan.periodCount * _periodDuration;
         loan.endDate = uint40(block.timestamp) + loanDuration;
-        loan.currentPeriodEndDate = uint40(block.timestamp + periodDuration);
+        loan.currentPeriodEndDate = uint40(block.timestamp + _periodDuration);
     }
 
     function _changeLoanStatus(uint256 instrumentId, FixedInterestOnlyLoanStatus _status) private {
@@ -137,7 +164,8 @@ contract FixedInterestOnlyLoans is ERC721Upgradeable, Upgradeable, IFixedInteres
     }
 
     function repay(uint256 instrumentId, uint256 amount)
-        external
+        public
+        virtual
         onlyLoanOwner(instrumentId)
         returns (uint256 principalRepaid, uint256 interestRepaid)
     {
@@ -196,6 +224,7 @@ contract FixedInterestOnlyLoans is ERC721Upgradeable, Upgradeable, IFixedInteres
         onlyLoanOwner(instrumentId)
         onlyLoanStatus(instrumentId, FixedInterestOnlyLoanStatus.Started)
     {
+        require(newGracePeriod > loans[instrumentId].gracePeriod, "FixedInterestOnlyLoans: Grace period can only be extended");
         loans[instrumentId].gracePeriod = newGracePeriod;
         emit GracePeriodUpdated(instrumentId, newGracePeriod);
     }
@@ -205,10 +234,10 @@ contract FixedInterestOnlyLoans is ERC721Upgradeable, Upgradeable, IFixedInteres
 
         if (loan.status == FixedInterestOnlyLoanStatus.Started) {
             return true;
-        }
-        if (loan.status == FixedInterestOnlyLoanStatus.Defaulted && loan.canBeRepaidAfterDefault) {
+        } else if (loan.status == FixedInterestOnlyLoanStatus.Defaulted && loan.canBeRepaidAfterDefault) {
             return true;
+        } else {
+            return false;
         }
-        return false;
     }
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.10;
+pragma solidity ^0.8.10;
 
 import {ITransferStrategy} from "../interfaces/ITransferStrategy.sol";
 import {DSRegistryServiceInterface} from "../interfaces/DSRegistryServiceInterface.sol";
