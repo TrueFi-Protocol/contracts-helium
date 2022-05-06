@@ -61,7 +61,6 @@ abstract contract BasePortfolio is IBasePortfolio, ERC20Upgradeable, Upgradeable
     }
 
     function deposit(uint256 amount, address sender) public virtual onlyRole(DEPOSIT_ROLE) {
-        require(amount >= 10**underlyingTokenDecimals, "BasePortfolio: Deposit amount is less than one underlying token");
         uint256 sharesToMint = calculateSharesToMint(amount);
         _mint(sender, sharesToMint);
         virtualTokenBalance += amount;
