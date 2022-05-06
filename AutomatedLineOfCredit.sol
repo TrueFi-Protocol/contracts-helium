@@ -192,7 +192,7 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
     }
 
     function utilization() external view returns (uint256) {
-        return _utilization(totalDebt());
+        return _utilization(borrowedAmount);
     }
 
     function calculateAmountToWithdraw(uint256 sharesAmount) public view virtual override returns (uint256) {
