@@ -107,7 +107,7 @@ contract FixedInterestOnlyLoans is ERC721Upgradeable, Upgradeable, IFixedInteres
         address _recipient,
         uint32 _gracePeriod,
         bool _canBeRepaidAfterDefault
-    ) public virtual returns (uint256) {
+    ) public virtual whenNotPaused returns (uint256) {
         require(_recipient != address(0), "FixedInterestOnlyLoans: recipient cannot be the zero address");
 
         uint32 loanDuration = _periodCount * _periodDuration;
@@ -140,7 +140,12 @@ contract FixedInterestOnlyLoans is ERC721Upgradeable, Upgradeable, IFixedInteres
         return id;
     }
 
-    function acceptLoan(uint256 instrumentId) public virtual onlyLoanStatus(instrumentId, FixedInterestOnlyLoanStatus.Created) {
+    function acceptLoan(uint256 instrumentId)
+        public
+        virtual
+        onlyLoanStatus(instrumentId, FixedInterestOnlyLoanStatus.Created)
+        whenNotPaused
+    {
         require(msg.sender == loans[instrumentId].recipient, "FixedInterestOnlyLoans: Not a borrower");
         _changeLoanStatus(instrumentId, FixedInterestOnlyLoanStatus.Accepted);
     }
@@ -149,6 +154,7 @@ contract FixedInterestOnlyLoans is ERC721Upgradeable, Upgradeable, IFixedInteres
         external
         onlyLoanOwner(instrumentId)
         onlyLoanStatus(instrumentId, FixedInterestOnlyLoanStatus.Accepted)
+        whenNotPaused
     {
         LoanMetadata storage loan = loans[instrumentId];
         _changeLoanStatus(instrumentId, FixedInterestOnlyLoanStatus.Started);
@@ -168,6 +174,7 @@ contract FixedInterestOnlyLoans is ERC721Upgradeable, Upgradeable, IFixedInteres
         public
         virtual
         onlyLoanOwner(instrumentId)
+        whenNotPaused
         returns (uint256 principalRepaid, uint256 interestRepaid)
     {
         require(_canBeRepaid(instrumentId), "FixedInterestOnlyLoans: This loan cannot be repaid");
@@ -199,7 +206,7 @@ contract FixedInterestOnlyLoans is ERC721Upgradeable, Upgradeable, IFixedInteres
         return amount;
     }
 
-    function cancel(uint256 instrumentId) external onlyLoanOwner(instrumentId) {
+    function cancel(uint256 instrumentId) external onlyLoanOwner(instrumentId) whenNotPaused {
         FixedInterestOnlyLoanStatus _status = loans[instrumentId].status;
         require(
             _status == FixedInterestOnlyLoanStatus.Created || _status == FixedInterestOnlyLoanStatus.Accepted,
@@ -212,6 +219,7 @@ contract FixedInterestOnlyLoans is ERC721Upgradeable, Upgradeable, IFixedInteres
         external
         onlyLoanOwner(instrumentId)
         onlyLoanStatus(instrumentId, FixedInterestOnlyLoanStatus.Started)
+        whenNotPaused
     {
         require(
             loans[instrumentId].currentPeriodEndDate + loans[instrumentId].gracePeriod < block.timestamp,
@@ -224,6 +232,7 @@ contract FixedInterestOnlyLoans is ERC721Upgradeable, Upgradeable, IFixedInteres
         external
         onlyLoanOwner(instrumentId)
         onlyLoanStatus(instrumentId, FixedInterestOnlyLoanStatus.Started)
+        whenNotPaused
     {
         require(newGracePeriod > loans[instrumentId].gracePeriod, "FixedInterestOnlyLoans: Grace period can only be extended");
         loans[instrumentId].gracePeriod = newGracePeriod;
