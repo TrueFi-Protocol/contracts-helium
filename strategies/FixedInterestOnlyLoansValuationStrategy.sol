@@ -6,6 +6,7 @@ import {IDebtInstrument} from "../interfaces/IDebtInstrument.sol";
 import {IFixedInterestOnlyLoans, FixedInterestOnlyLoanStatus} from "../interfaces/IFixedInterestOnlyLoans.sol";
 import {Upgradeable} from "../access/Upgradeable.sol";
 import {IBasePortfolio} from "../interfaces/IBasePortfolio.sol";
+import {IProtocolConfig} from "../interfaces/IProtocolConfig.sol";
 
 contract FixedInterestOnlyLoansValuationStrategy is Upgradeable, IValuationStrategy {
     struct PortfolioDetails {
@@ -27,8 +28,12 @@ contract FixedInterestOnlyLoansValuationStrategy is Upgradeable, IValuationStrat
         _;
     }
 
-    function initialize(IFixedInterestOnlyLoans _fixedInterestOnlyLoansAddress, address _parentStrategy) external initializer {
-        __Upgradeable_init(msg.sender);
+    function initialize(
+        IProtocolConfig _protocolConfig,
+        IFixedInterestOnlyLoans _fixedInterestOnlyLoansAddress,
+        address _parentStrategy
+    ) external initializer {
+        __Upgradeable_init(msg.sender, _protocolConfig.pauserAddress());
         fixedInterestOnlyLoansAddress = _fixedInterestOnlyLoansAddress;
         parentStrategy = _parentStrategy;
     }

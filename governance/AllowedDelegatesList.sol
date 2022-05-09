@@ -10,8 +10,8 @@ contract AllowedDelegatesList is Upgradeable {
 
     event AllowedListChanged(address account, bool isAllowed);
 
-    function initialize(ERC20 _tru) external initializer {
-        __Upgradeable_init(msg.sender);
+    function initialize(address pauser, ERC20 _tru) external initializer {
+        __Upgradeable_init(msg.sender, pauser);
         tru = _tru;
     }
 

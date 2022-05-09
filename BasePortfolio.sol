@@ -42,7 +42,7 @@ abstract contract BasePortfolio is IBasePortfolio, ERC20Upgradeable, Upgradeable
         uint256 _managerFee
     ) internal initializer {
         require(_duration > 0, "BasePortfolio: Cannot have zero duration");
-        __Upgradeable_init(_protocolConfig.protocolAddress());
+        __Upgradeable_init(_protocolConfig.protocolAddress(), _protocolConfig.pauserAddress());
         _grantRole(MANAGER_ROLE, _manager);
         _setRoleAdmin(DEPOSIT_ROLE, MANAGER_ROLE);
         _setRoleAdmin(WITHDRAW_ROLE, MANAGER_ROLE);

@@ -7,6 +7,7 @@ import {IERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/interfaces
 import {ERC721Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import {Upgradeable} from "./access/Upgradeable.sol";
 import {IFixedInterestOnlyLoans, FixedInterestOnlyLoanStatus} from "./interfaces/IFixedInterestOnlyLoans.sol";
+import {IProtocolConfig} from "./interfaces/IProtocolConfig.sol";
 
 contract FixedInterestOnlyLoans is ERC721Upgradeable, Upgradeable, IFixedInterestOnlyLoans {
     LoanMetadata[] internal loans;
@@ -27,8 +28,8 @@ contract FixedInterestOnlyLoans is ERC721Upgradeable, Upgradeable, IFixedInteres
         _;
     }
 
-    function initialize() external initializer {
-        __Upgradeable_init(msg.sender);
+    function initialize(IProtocolConfig _protocolConfig) external initializer {
+        __Upgradeable_init(msg.sender, _protocolConfig.pauserAddress());
         __ERC721_init("FixedInterestOnlyLoans", "FIOL");
     }
 

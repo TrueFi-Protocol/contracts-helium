@@ -4,6 +4,7 @@ pragma solidity ^0.8.10;
 import {IValuationStrategy} from "../interfaces/IValuationStrategy.sol";
 import {IDebtInstrument} from "../interfaces/IDebtInstrument.sol";
 import {IBulletLoans, BulletLoanStatus} from "./interfaces/IBulletLoans.sol";
+import {IProtocolConfig} from "../interfaces/IProtocolConfig.sol";
 import {Upgradeable} from "../access/Upgradeable.sol";
 import {IBasePortfolio} from "../interfaces/IBasePortfolio.sol";
 
@@ -23,8 +24,12 @@ contract BulletLoansValuationStrategy is Upgradeable, IValuationStrategy {
         _;
     }
 
-    function initialize(IBulletLoans _bulletLoans, address _parentStrategy) external initializer {
-        __Upgradeable_init(msg.sender);
+    function initialize(
+        IProtocolConfig _protocolConfig,
+        IBulletLoans _bulletLoans,
+        address _parentStrategy
+    ) external initializer {
+        __Upgradeable_init(msg.sender, _protocolConfig.pauserAddress());
         bulletLoansAddress = _bulletLoans;
         parentStrategy = _parentStrategy;
     }

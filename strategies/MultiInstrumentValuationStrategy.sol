@@ -5,6 +5,7 @@ import {Upgradeable} from "../access/Upgradeable.sol";
 import {IValuationStrategy} from "../interfaces/IValuationStrategy.sol";
 import {IDebtInstrument} from "../interfaces/IDebtInstrument.sol";
 import {IBasePortfolio} from "../interfaces/IBasePortfolio.sol";
+import {IProtocolConfig} from "../interfaces/IProtocolConfig.sol";
 
 contract MultiInstrumentValuationStrategy is Upgradeable, IValuationStrategy {
     IDebtInstrument[] public instruments;
@@ -15,8 +16,8 @@ contract MultiInstrumentValuationStrategy is Upgradeable, IValuationStrategy {
         _;
     }
 
-    function initialize() external initializer {
-        __Upgradeable_init(msg.sender);
+    function initialize(IProtocolConfig _protocolConfig) external initializer {
+        __Upgradeable_init(msg.sender, _protocolConfig.pauserAddress());
     }
 
     function addStrategy(IDebtInstrument instrument, IValuationStrategy strategy) external onlyRole(DEFAULT_ADMIN_ROLE) {

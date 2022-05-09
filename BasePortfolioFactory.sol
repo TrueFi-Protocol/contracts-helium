@@ -24,7 +24,7 @@ abstract contract BasePortfolioFactory is Upgradeable {
     }
 
     function initialize(IBasePortfolio _portfolioImplementation, IProtocolConfig _protocolConfig) external initializer {
-        __Upgradeable_init(msg.sender);
+        __Upgradeable_init(msg.sender, _protocolConfig.pauserAddress());
         portfolioImplementation = _portfolioImplementation;
         protocolConfig = _protocolConfig;
     }

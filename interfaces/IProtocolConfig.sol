@@ -7,4 +7,6 @@ interface IProtocolConfig {
     function automatedLineOfCreditPremiumFee() external view returns (uint256);
 
     function protocolAddress() external view returns (address);
+
+    function pauserAddress() external view returns (address);
 }
