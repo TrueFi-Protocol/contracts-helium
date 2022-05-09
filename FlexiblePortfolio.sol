@@ -114,7 +114,7 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
         emit InstrumentUpdated(instrument);
     }
 
-    function deposit(uint256 amount, address sender) public override(IBasePortfolio, BasePortfolio) {
+    function deposit(uint256 amount, address sender) public override(IBasePortfolio, BasePortfolio) whenNotPaused {
         require(getRoleMemberCount(MANAGER_ROLE) == 1, "FlexiblePortfolio: Portfolio has multiple managers");
         require(amount + value() <= maxValue, "FlexiblePortfolio: Portfolio is full");
         _updateClaimableInterest(sender);
@@ -135,19 +135,19 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
         emit FeePaid(sender, protocolAddress, protocolsPart);
     }
 
-    function transfer(address recipient, uint256 amount) public override returns (bool) {
+    function transfer(address recipient, uint256 amount) public override whenNotPaused returns (bool) {
         _updateClaimableInterest(msg.sender);
         _updateClaimableInterest(recipient);
         return super.transfer(recipient, amount);
     }
 
-    function withdraw(uint256 shares, address sender) public override(IBasePortfolio, BasePortfolio) {
+    function withdraw(uint256 shares, address sender) public override(IBasePortfolio, BasePortfolio) whenNotPaused {
         _updateClaimableInterest(sender);
         _claimInterest(sender);
         super.withdraw(shares, sender);
     }
 
-    function claimInterest() external {
+    function claimInterest() external whenNotPaused {
         _claimInterest(msg.sender);
     }
 
@@ -170,7 +170,7 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
         IDebtInstrument instrument,
         uint256 instrumentId,
         uint256 amount
-    ) external {
+    ) external whenNotPaused {
         require(instrument.recipient(instrumentId) == msg.sender, "FlexiblePortfolio: Not an instrument recipient");
         (, uint256 interestRepaid) = instrument.repay(instrumentId, amount);
         valuationStrategy.onInstrumentUpdated(this, instrument, instrumentId);
