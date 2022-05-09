@@ -570,15 +570,19 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
         uint32 index = nextDistributionIndex;
         uint32 batchLimitIndex = index + SCHEDULED_REWARDS_BATCH_SIZE;
         uint32 end = batchLimitIndex < scheduledRewards.length ? batchLimitIndex : uint32(scheduledRewards.length);
+        uint256 _undistributedTfusdRewards = undistributedTfusdRewards;
 
         while (index < end) {
             ScheduledTfUsdRewards storage rewards = scheduledRewards[sortedScheduledRewardIndices[index]];
             if (rewards.timestamp >= block.timestamp) {
                 break;
             }
-            undistributedTfusdRewards = undistributedTfusdRewards - rewards.amount;
+            _undistributedTfusdRewards = _undistributedTfusdRewards - rewards.amount;
             index++;
         }
+
+        undistributedTfusdRewards = _undistributedTfusdRewards;
+
         if (nextDistributionIndex != index) {
             nextDistributionIndex = index;
         }
