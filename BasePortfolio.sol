@@ -60,7 +60,7 @@ abstract contract BasePortfolio is IBasePortfolio, ERC20Upgradeable, Upgradeable
         _setTransferStrategy(_transferStrategy);
     }
 
-    function deposit(uint256 amount, address sender) public virtual onlyRole(DEPOSIT_ROLE) {
+    function deposit(uint256 amount, address sender) public virtual onlyRole(DEPOSIT_ROLE) whenNotPaused {
         uint256 sharesToMint = calculateSharesToMint(amount);
         _mint(sender, sharesToMint);
         virtualTokenBalance += amount;
@@ -68,7 +68,7 @@ abstract contract BasePortfolio is IBasePortfolio, ERC20Upgradeable, Upgradeable
         emit Deposited(sharesToMint, amount, sender);
     }
 
-    function withdraw(uint256 shares, address sender) public virtual onlyRole(WITHDRAW_ROLE) {
+    function withdraw(uint256 shares, address sender) public virtual onlyRole(WITHDRAW_ROLE) whenNotPaused {
         uint256 amountToWithdraw = calculateAmountToWithdraw(shares);
         require(amountToWithdraw <= virtualTokenBalance, "BasePortfolio: Amount exceeds pool balance");
         virtualTokenBalance -= amountToWithdraw;
@@ -105,7 +105,7 @@ abstract contract BasePortfolio is IBasePortfolio, ERC20Upgradeable, Upgradeable
         address sender,
         address recipient,
         uint256 amount
-    ) internal override {
+    ) internal override whenNotPaused {
         if (transferStrategy != address(0)) {
             require(
                 ITransferStrategy(transferStrategy).canTransfer(sender, recipient, amount),
