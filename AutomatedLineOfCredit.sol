@@ -56,7 +56,7 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
         _setTransferStrategy(_transferStrategy);
     }
 
-    function borrow(uint256 amount) public {
+    function borrow(uint256 amount) public whenNotPaused {
         require(msg.sender == borrower, "AutomatedLineOfCredit: Caller is not the borrower");
         require(address(this) != borrower, "AutomatedLineOfCredit: Pool cannot borrow from itself");
         require(block.timestamp < endDate, "AutomatedLineOfCredit: Pool end date has elapsed");
@@ -75,7 +75,7 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
         return _value(totalDebt());
     }
 
-    function repay(uint256 amount) public {
+    function repay(uint256 amount) public whenNotPaused {
         require(msg.sender == borrower, "AutomatedLineOfCredit: Caller is not the borrower");
         require(msg.sender != address(this), "AutomatedLineOfCredit: Pool cannot repay itself");
         require(borrower != address(this), "AutomatedLineOfCredit: Pool cannot repay itself");
@@ -93,7 +93,7 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
         _repay(amount);
     }
 
-    function repayInFull() external {
+    function repayInFull() external whenNotPaused {
         require(msg.sender == borrower, "AutomatedLineOfCredit: Caller is not the borrower");
         require(msg.sender != address(this), "AutomatedLineOfCredit: Pool cannot repay itself");
         require(borrower != address(this), "AutomatedLineOfCredit: Pool cannot repay itself");
@@ -121,7 +121,7 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
         super.deposit(amount, sender);
     }
 
-    function withdraw(uint256 shares, address sender) public override onlyRole(WITHDRAW_ROLE) {
+    function withdraw(uint256 shares, address sender) public override onlyRole(WITHDRAW_ROLE) whenNotPaused {
         require(msg.sender != address(this), "AutomatedLineOfCredit: Pool cannot withdraw from itself");
         require(msg.sender != sender, "AutomatedLineOfCredit: Pool cannot withdraw from itself");
         require(sender != address(this), "AutomatedLineOfCredit: Pool cannot withdraw from itself");
