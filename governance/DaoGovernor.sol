@@ -45,8 +45,12 @@ contract DaoGovernor is
         return super.quorum(blockNumber);
     }
 
-    function getVotes(address account, uint256 blockNumber) public view override(IGovernor, GovernorVotes) returns (uint256) {
-        return super.getVotes(account, blockNumber);
+    function _getVotes(
+        address account,
+        uint256 blockNumber,
+        bytes memory params
+    ) internal view override(Governor, GovernorVotes) returns (uint256) {
+        return super._getVotes(account, blockNumber, params);
     }
 
     function state(uint256 proposalId) public view override(Governor, GovernorTimelockControl) returns (ProposalState) {
