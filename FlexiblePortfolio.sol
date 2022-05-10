@@ -35,6 +35,7 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
     event ValuationStrategyChanged(IValuationStrategy indexed strategy);
     event InstrumentRepaid(IDebtInstrument indexed instrument, uint256 indexed instrumentId, uint256 amount);
     event ManagerFeeChanged(uint256 newManagerFee);
+    event MaxValueChanged(uint256 newMaxValue);
 
     function initialize(
         IProtocolConfig _protocolConfig,
@@ -175,6 +176,11 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
     function setManagerFee(uint256 newManagerFee) external onlyRole(MANAGER_ROLE) {
         managerFee = newManagerFee;
         emit ManagerFeeChanged(newManagerFee);
+    }
+
+    function setMaxValue(uint256 _maxValue) external onlyRole(MANAGER_ROLE) {
+        maxValue = _maxValue;
+        emit MaxValueChanged(_maxValue);
     }
 
     function cancelInstrument(IDebtInstrument instrument, uint256 instrumentId) external onlyRole(MANAGER_ROLE) {
