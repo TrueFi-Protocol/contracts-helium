@@ -15,11 +15,6 @@ interface IFlexiblePortfolio is IBasePortfolio {
         IValuationStrategy valuationStrategy;
     }
 
-    struct InterestDetails {
-        uint256 previousCumulatedInterestPerShare;
-        uint256 claimableInterest;
-    }
-
     function initialize(
         IProtocolConfig _protocolConfig,
         uint256 _duration,

@@ -26,10 +26,6 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
     uint256 public maxValue;
     IValuationStrategy public valuationStrategy;
 
-    uint256 public cumulativeInterestPerShare;
-    mapping(address => InterestDetails) public lenderInterestDetails;
-    uint256 public totalUnclaimedInterest;
-
     mapping(IDebtInstrument => mapping(uint256 => bool)) public isInstrumentAdded;
 
     event InstrumentAdded(IDebtInstrument indexed instrument, uint256 indexed instrumentId);
@@ -39,7 +35,6 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
     event ValuationStrategyChanged(IValuationStrategy indexed strategy);
     event InstrumentRepaid(IDebtInstrument indexed instrument, uint256 indexed instrumentId, uint256 amount);
     event ManagerFeeChanged(uint256 newManagerFee);
-    event InterestClaimed(address indexed lender, uint256 amount);
 
     function initialize(
         IProtocolConfig _protocolConfig,
@@ -98,7 +93,7 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
         require(isInstrumentAdded[instrument][instrumentId], "FlexiblePortfolio: Instrument is not added");
         address borrower = instrument.recipient(instrumentId);
         uint256 principalAmount = instrument.principal(instrumentId);
-        require(principalAmount <= availableToBorrow(), "FlexiblePortfolio: Insufficient funds in portfolio to fund loan");
+        require(principalAmount <= virtualTokenBalance, "FlexiblePortfolio: Insufficient funds in portfolio to fund loan");
         instrument.start(instrumentId);
         valuationStrategy.onInstrumentFunded(this, instrument, instrumentId);
         underlyingToken.safeTransfer(borrower, principalAmount);
@@ -117,7 +112,6 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
     function deposit(uint256 amount, address sender) public override(IBasePortfolio, BasePortfolio) whenNotPaused {
         require(getRoleMemberCount(MANAGER_ROLE) == 1, "FlexiblePortfolio: Portfolio has multiple managers");
         require(amount + value() <= maxValue, "FlexiblePortfolio: Portfolio is full");
-        _updateClaimableInterest(sender);
 
         uint256 managersPart = (amount * managerFee) / BASIS_PRECISION;
         uint256 protocolsPart = (amount * protocolConfig.protocolFee()) / BASIS_PRECISION;
@@ -136,34 +130,7 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
     }
 
     function transfer(address recipient, uint256 amount) public override whenNotPaused returns (bool) {
-        _updateClaimableInterest(msg.sender);
-        _updateClaimableInterest(recipient);
         return super.transfer(recipient, amount);
-    }
-
-    function withdraw(uint256 shares, address sender) public override(IBasePortfolio, BasePortfolio) whenNotPaused {
-        _updateClaimableInterest(sender);
-        _claimInterest(sender);
-        super.withdraw(shares, sender);
-    }
-
-    function claimInterest() external whenNotPaused {
-        _claimInterest(msg.sender);
-    }
-
-    function _claimInterest(address lender) internal {
-        uint256 amount = withdrawableInterest(lender);
-        if (amount == 0) {
-            return;
-        }
-        InterestDetails storage lenderInterest = lenderInterestDetails[lender];
-        lenderInterest.previousCumulatedInterestPerShare = cumulativeInterestPerShare;
-        lenderInterest.claimableInterest = 0;
-
-        totalUnclaimedInterest -= amount;
-        virtualTokenBalance -= amount;
-        underlyingToken.safeTransfer(lender, amount);
-        emit InterestClaimed(lender, amount);
     }
 
     function repay(
@@ -172,10 +139,9 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
         uint256 amount
     ) external whenNotPaused {
         require(instrument.recipient(instrumentId) == msg.sender, "FlexiblePortfolio: Not an instrument recipient");
-        (, uint256 interestRepaid) = instrument.repay(instrumentId, amount);
+        instrument.repay(instrumentId, amount);
         valuationStrategy.onInstrumentUpdated(this, instrument, instrumentId);
 
-        _updateCumulativeInterest(interestRepaid);
         instrument.underlyingToken(instrumentId).safeTransferFrom(msg.sender, address(this), amount);
         virtualTokenBalance += amount;
         emit InstrumentRepaid(instrument, instrumentId, amount);
@@ -195,19 +161,15 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
         emit ValuationStrategyChanged(_valuationStrategy);
     }
 
-    function withdrawableInterest(address lender) public view returns (uint256) {
-        return lenderInterestDetails[lender].claimableInterest + _claimableInterestChangeSinceLastUpdate(lender);
-    }
-
     function value() public view override(BasePortfolio, IBasePortfolio) returns (uint256) {
         if (address(valuationStrategy) == address(0)) {
             return 0;
         }
-        return virtualTokenBalance + valuationStrategy.calculateValue(this) - totalUnclaimedInterest;
+        return virtualTokenBalance + valuationStrategy.calculateValue(this);
     }
 
     function liquidValue() public view returns (uint256) {
-        return underlyingToken.balanceOf(address(this)) - totalUnclaimedInterest;
+        return virtualTokenBalance;
     }
 
     function setManagerFee(uint256 newManagerFee) external onlyRole(MANAGER_ROLE) {
@@ -223,28 +185,5 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
     function markInstrumentAsDefaulted(IDebtInstrument instrument, uint256 instrumentId) external onlyRole(MANAGER_ROLE) {
         instrument.markAsDefaulted(instrumentId);
         valuationStrategy.onInstrumentUpdated(this, instrument, instrumentId);
-    }
-
-    function _claimableInterestChangeSinceLastUpdate(address lender) internal view returns (uint256) {
-        return
-            (balanceOf(lender) * (cumulativeInterestPerShare - lenderInterestDetails[lender].previousCumulatedInterestPerShare)) /
-            PRECISION;
-    }
-
-    function _updateCumulativeInterest(uint256 interestRepaid) internal {
-        if (interestRepaid > 0 && totalSupply() > 0) {
-            totalUnclaimedInterest += interestRepaid;
-            cumulativeInterestPerShare += (interestRepaid * PRECISION) / totalSupply();
-        }
-    }
-
-    function _updateClaimableInterest(address lender) internal {
-        InterestDetails storage lenderInterest = lenderInterestDetails[lender];
-        lenderInterest.claimableInterest += _claimableInterestChangeSinceLastUpdate(lender);
-        lenderInterest.previousCumulatedInterestPerShare = cumulativeInterestPerShare;
-    }
-
-    function availableToBorrow() public view returns (uint256) {
-        return virtualTokenBalance - totalUnclaimedInterest;
     }
 }
