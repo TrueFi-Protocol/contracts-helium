@@ -114,4 +114,12 @@ abstract contract BasePortfolio is IBasePortfolio, ERC20Upgradeable, Upgradeable
         }
         super._transfer(sender, recipient, amount);
     }
+
+    function _approve(
+        address owner,
+        address spender,
+        uint256 amount
+    ) internal override whenNotPaused {
+        super._approve(owner, spender, amount);
+    }
 }
