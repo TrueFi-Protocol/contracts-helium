@@ -144,7 +144,7 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
         emit FeePaid(sender, protocolAddress, feeAmount);
     }
 
-    function unincludedInterest() internal view returns (uint256) {
+    function unincludedInterest() public view returns (uint256) {
         return (interestRate() * borrowedAmount * (block.timestamp - lastUtilizationUpdateTime)) / YEAR / BASIS_PRECISION;
     }
 
