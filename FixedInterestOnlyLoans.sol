@@ -98,6 +98,10 @@ contract FixedInterestOnlyLoans is ERC721Upgradeable, Upgradeable, IFixedInteres
         return loans[instrumentId].periodsRepaid;
     }
 
+    function loanData(uint256 instrumentId) external view returns (LoanMetadata memory) {
+        return loans[instrumentId];
+    }
+
     function issueLoan(
         IERC20 _underlyingToken,
         uint256 _principal,

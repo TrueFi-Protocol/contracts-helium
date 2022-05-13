@@ -40,6 +40,8 @@ interface IFixedInterestOnlyLoans is IDebtInstrument {
         bool _canBeRepaidAfterDefault
     ) external returns (uint256);
 
+    function loanData(uint256 instrumentId) external view returns (LoanMetadata memory);
+
     function updateInstrument(uint256 _instrumentId, uint32 _gracePeriod) external;
 
     function status(uint256 instrumentId) external view returns (FixedInterestOnlyLoanStatus);

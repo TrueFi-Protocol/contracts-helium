@@ -1,24 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
-import {IValuationStrategy} from "../interfaces/IValuationStrategy.sol";
+import {IProtocolConfig} from "../interfaces/IProtocolConfig.sol";
+import {IBasePortfolio} from "../interfaces/IBasePortfolio.sol";
 import {IDebtInstrument} from "../interfaces/IDebtInstrument.sol";
+import {IValuationStrategy} from "../interfaces/IValuationStrategy.sol";
 import {IFixedInterestOnlyLoans, FixedInterestOnlyLoanStatus} from "../interfaces/IFixedInterestOnlyLoans.sol";
 import {Upgradeable} from "../access/Upgradeable.sol";
-import {IBasePortfolio} from "../interfaces/IBasePortfolio.sol";
-import {IProtocolConfig} from "../interfaces/IProtocolConfig.sol";
 
 contract FixedInterestOnlyLoansValuationStrategy is Upgradeable, IValuationStrategy {
-    struct PortfolioDetails {
-        uint256 value;
-        mapping(uint256 => bool) isLoanActive;
-    }
-
-    address public parentStrategy;
     IFixedInterestOnlyLoans public fixedInterestOnlyLoansAddress;
-    mapping(IBasePortfolio => PortfolioDetails) public portfolioDetails;
+    address public parentStrategy;
 
-    event InstrumentFunded(IBasePortfolio indexed portfolio, IDebtInstrument indexed instrument, uint256 indexed instrumentId);
+    mapping(IBasePortfolio => uint256[]) public loans;
+    mapping(IBasePortfolio => mapping(uint256 => bool)) public isActive;
 
     modifier onlyPortfolioOrParentStrategy(IBasePortfolio portfolio) {
         require(
@@ -44,12 +39,12 @@ contract FixedInterestOnlyLoansValuationStrategy is Upgradeable, IValuationStrat
         uint256 instrumentId
     ) external onlyPortfolioOrParentStrategy(portfolio) whenNotPaused {
         require(instrument == fixedInterestOnlyLoansAddress, "FixedInterestOnlyLoansValuationStrategy: Unexpected instrument");
-
-        PortfolioDetails storage _portfolioDetails = portfolioDetails[portfolio];
-        _portfolioDetails.isLoanActive[instrumentId] = true;
-        _portfolioDetails.value += instrument.principal(instrumentId);
-
-        emit InstrumentFunded(portfolio, instrument, instrumentId);
+        require(
+            !isActive[portfolio][instrumentId],
+            "FixedInterestOnlyLoansValuationStrategy: Loan is already active for this portfolio"
+        );
+        isActive[portfolio][instrumentId] = true;
+        loans[portfolio].push(instrumentId);
     }
 
     function onInstrumentUpdated(
@@ -58,31 +53,68 @@ contract FixedInterestOnlyLoansValuationStrategy is Upgradeable, IValuationStrat
         uint256 instrumentId
     ) external onlyPortfolioOrParentStrategy(portfolio) whenNotPaused {
         require(instrument == fixedInterestOnlyLoansAddress, "FixedInterestOnlyLoansValuationStrategy: Unexpected instrument");
-        _tryToExcludeLoan(portfolio, instrument, instrumentId);
+        _tryToExcludeLoan(portfolio, instrumentId);
     }
 
-    function _tryToExcludeLoan(
-        IBasePortfolio portfolio,
-        IDebtInstrument instrument,
-        uint256 instrumentId
-    ) private {
-        PortfolioDetails storage _portfolioDetails = portfolioDetails[portfolio];
-        bool isActive = _portfolioDetails.isLoanActive[instrumentId];
-        if (!isActive) {
-            return;
-        }
-        FixedInterestOnlyLoanStatus status = IFixedInterestOnlyLoans(address(instrument)).status(instrumentId);
-        if (status != FixedInterestOnlyLoanStatus.Started) {
-            _portfolioDetails.isLoanActive[instrumentId] = false;
-            _portfolioDetails.value -= instrument.principal(instrumentId);
+    function _tryToExcludeLoan(IBasePortfolio portfolio, uint256 instrumentId) private {
+        IFixedInterestOnlyLoans.LoanMetadata memory loan = fixedInterestOnlyLoansAddress.loanData(instrumentId);
+
+        if (loan.status != FixedInterestOnlyLoanStatus.Started && isActive[portfolio][instrumentId]) {
+            uint256[] storage portfolioLoans = loans[portfolio];
+
+            for (uint256 i = 0; i < portfolioLoans.length; i++) {
+                if (portfolioLoans[i] == instrumentId) {
+                    portfolioLoans[i] = portfolioLoans[portfolioLoans.length - 1];
+                    isActive[portfolio][instrumentId] = false;
+                    portfolioLoans.pop();
+                    break;
+                }
+            }
         }
     }
 
     function calculateValue(IBasePortfolio portfolio) external view returns (uint256) {
-        return portfolioDetails[portfolio].value;
+        uint256[] memory _loans = loans[portfolio];
+        uint256 _value = 0;
+        for (uint256 i = 0; i < _loans.length; i++) {
+            uint256 instrumentId = _loans[i];
+            _value += _calculateLoanValue(instrumentId);
+        }
+
+        return _value;
     }
 
-    function isLoanActive(IBasePortfolio portfolio, uint256 instrumentId) external view returns (bool) {
-        return portfolioDetails[portfolio].isLoanActive[instrumentId];
+    function activeLoans(IBasePortfolio portfolio) external view returns (uint256[] memory) {
+        return loans[portfolio];
+    }
+
+    function _calculateLoanValue(uint256 instrumentId) internal view returns (uint256) {
+        IFixedInterestOnlyLoans.LoanMetadata memory loan = fixedInterestOnlyLoansAddress.loanData(instrumentId);
+
+        uint256 accruedInterest = _calculateAccruedInterest(loan.periodPayment, loan.periodDuration, loan.periodCount, loan.endDate);
+        uint256 interestPaidSoFar = loan.periodsRepaid * loan.periodPayment;
+
+        if (loan.principal + accruedInterest <= interestPaidSoFar) {
+            return 0;
+        } else {
+            return loan.principal + accruedInterest - interestPaidSoFar;
+        }
+    }
+
+    function _calculateAccruedInterest(
+        uint256 periodPayment,
+        uint256 periodDuration,
+        uint256 periodCount,
+        uint256 endDate
+    ) internal view returns (uint256) {
+        uint256 fullInterest = periodPayment * periodCount;
+        if (block.timestamp >= endDate) {
+            return fullInterest;
+        }
+
+        uint256 loanDuration = (periodDuration * periodCount);
+        uint256 passed = block.timestamp + loanDuration - endDate;
+
+        return (fullInterest * passed) / loanDuration;
     }
 }
