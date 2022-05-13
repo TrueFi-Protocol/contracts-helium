@@ -15,14 +15,14 @@ contract AllowedDelegatesList is Upgradeable {
         tru = _tru;
     }
 
-    function join() external {
+    function join() external whenNotPaused {
         require(isAllowed[msg.sender] == false, "AllowedDelegatesList: Sender is already in the list");
         isAllowed[msg.sender] = true;
         tru.transferFrom(msg.sender, address(this), 10**tru.decimals());
         emit AllowedListChanged(msg.sender, true);
     }
 
-    function leave() external {
+    function leave() external whenNotPaused {
         require(isAllowed[msg.sender] == true, "AllowedDelegatesList: Sender is not in the list");
         isAllowed[msg.sender] = false;
         tru.transfer(msg.sender, 10**tru.decimals());
