@@ -33,7 +33,7 @@ contract MultiInstrumentValuationStrategy is Upgradeable, IValuationStrategy {
         IBasePortfolio portfolio,
         IDebtInstrument instrument,
         uint256 instrumentId
-    ) external onlyPortfolio(portfolio) {
+    ) external onlyPortfolio(portfolio) whenNotPaused {
         strategies[instrument].onInstrumentFunded(portfolio, instrument, instrumentId);
     }
 
@@ -41,7 +41,7 @@ contract MultiInstrumentValuationStrategy is Upgradeable, IValuationStrategy {
         IBasePortfolio portfolio,
         IDebtInstrument instrument,
         uint256 instrumentId
-    ) external onlyPortfolio(portfolio) {
+    ) external onlyPortfolio(portfolio) whenNotPaused {
         strategies[instrument].onInstrumentUpdated(portfolio, instrument, instrumentId);
     }
 
