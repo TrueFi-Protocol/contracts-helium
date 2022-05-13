@@ -42,7 +42,7 @@ contract FixedInterestOnlyLoansValuationStrategy is Upgradeable, IValuationStrat
         IBasePortfolio portfolio,
         IDebtInstrument instrument,
         uint256 instrumentId
-    ) external onlyPortfolioOrParentStrategy(portfolio) {
+    ) external onlyPortfolioOrParentStrategy(portfolio) whenNotPaused {
         require(instrument == fixedInterestOnlyLoansAddress, "FixedInterestOnlyLoansValuationStrategy: Unexpected instrument");
 
         PortfolioDetails storage _portfolioDetails = portfolioDetails[portfolio];
@@ -56,7 +56,7 @@ contract FixedInterestOnlyLoansValuationStrategy is Upgradeable, IValuationStrat
         IBasePortfolio portfolio,
         IDebtInstrument instrument,
         uint256 instrumentId
-    ) external onlyPortfolioOrParentStrategy(portfolio) {
+    ) external onlyPortfolioOrParentStrategy(portfolio) whenNotPaused {
         require(instrument == fixedInterestOnlyLoansAddress, "FixedInterestOnlyLoansValuationStrategy: Unexpected instrument");
         _tryToExcludeLoan(portfolio, instrument, instrumentId);
     }
