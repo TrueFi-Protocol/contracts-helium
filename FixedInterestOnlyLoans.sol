@@ -4,6 +4,7 @@ pragma solidity ^0.8.10;
 import {AccessControlEnumerableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/IERC165Upgradeable.sol";
+import {IERC721Upgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/IERC721Upgradeable.sol";
 import {ERC721Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import {Upgradeable} from "./access/Upgradeable.sol";
 import {IFixedInterestOnlyLoans, FixedInterestOnlyLoanStatus} from "./interfaces/IFixedInterestOnlyLoans.sol";
@@ -253,5 +254,17 @@ contract FixedInterestOnlyLoans is ERC721Upgradeable, Upgradeable, IFixedInteres
         } else {
             return false;
         }
+    }
+
+    function _transfer(
+        address from,
+        address to,
+        uint256 tokenID
+    ) internal virtual override whenNotPaused {
+        super._transfer(from, to, tokenID);
+    }
+
+    function _approve(address to, uint256 tokenID) internal virtual override whenNotPaused {
+        super._approve(to, tokenID);
     }
 }
