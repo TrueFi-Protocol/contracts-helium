@@ -16,7 +16,7 @@ contract AutomatedLineOfCreditFactory is BasePortfolioFactory {
         address _transferStrategy,
         string calldata name,
         string calldata symbol
-    ) external onlyWhitelisted {
+    ) external onlyRole(MANAGER_ROLE) {
         bytes memory initCalldata = abi.encodeWithSelector(
             IAutomatedLineOfCredit.initialize.selector,
             protocolConfig,

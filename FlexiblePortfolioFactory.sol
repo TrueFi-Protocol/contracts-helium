@@ -8,29 +8,15 @@ import {IValuationStrategy} from "./interfaces/IValuationStrategy.sol";
 import {BasePortfolioFactory} from "./BasePortfolioFactory.sol";
 
 contract FlexiblePortfolioFactory is BasePortfolioFactory {
-    struct ERC20Metatdata {
-        string name;
-        string symbol;
-    }
-
     function createPortfolio(
         IERC20WithDecimals _underlyingToken,
         uint256 _duration,
         uint256 _maxValue,
-        address _depositStrategy,
-        address _withdrawStrategy,
-        address _transferStrategy,
-        IValuationStrategy _valuationStrategy,
+        IFlexiblePortfolio.Strategies calldata strategies,
         IDebtInstrument[] calldata _allowedInstruments,
         uint256 _managerFee,
-        ERC20Metatdata calldata tokenMetadata
-    ) external onlyWhitelisted {
-        IFlexiblePortfolio.Strategies memory strategies = IFlexiblePortfolio.Strategies(
-            _depositStrategy,
-            _withdrawStrategy,
-            _transferStrategy,
-            _valuationStrategy
-        );
+        IFlexiblePortfolio.ERC20Metadata calldata tokenMetadata
+    ) external onlyRole(MANAGER_ROLE) {
         bytes memory initCalldata = abi.encodeWithSelector(
             IFlexiblePortfolio.initialize.selector,
             protocolConfig,
@@ -41,8 +27,7 @@ contract FlexiblePortfolioFactory is BasePortfolioFactory {
             strategies,
             _allowedInstruments,
             _managerFee,
-            tokenMetadata.name,
-            tokenMetadata.symbol
+            tokenMetadata
         );
         _deployPortfolio(initCalldata);
     }

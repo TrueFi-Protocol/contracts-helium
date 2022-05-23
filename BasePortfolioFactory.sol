@@ -8,31 +8,19 @@ import {ProxyWrapper} from "./proxy/ProxyWrapper.sol";
 import {Upgradeable} from "./access/Upgradeable.sol";
 
 abstract contract BasePortfolioFactory is Upgradeable {
+    bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
+
     IBasePortfolio public portfolioImplementation;
     IBasePortfolio[] public portfolios;
     IProtocolConfig public protocolConfig;
 
-    mapping(address => bool) public isWhitelisted;
-
     event PortfolioCreated(IBasePortfolio indexed newPortfolio, address indexed manager);
-    event WhitelistChanged(address indexed account, bool whitelisted);
     event PortfolioImplementationChanged(IBasePortfolio indexed newImplementation);
-
-    modifier onlyWhitelisted() {
-        require(isWhitelisted[msg.sender], "BasePortfolioFactory: Caller is not whitelisted");
-        _;
-    }
 
     function initialize(IBasePortfolio _portfolioImplementation, IProtocolConfig _protocolConfig) external initializer {
         __Upgradeable_init(msg.sender, _protocolConfig.pauserAddress());
         portfolioImplementation = _portfolioImplementation;
         protocolConfig = _protocolConfig;
-    }
-
-    function setIsWhitelisted(address account, bool _isWhitelisted) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(isWhitelisted[account] != _isWhitelisted, "BasePortfolioFactory: New whitelist status needs to be different");
-        isWhitelisted[account] = _isWhitelisted;
-        emit WhitelistChanged(account, _isWhitelisted);
     }
 
     function setPortfolioImplementation(IBasePortfolio newImplementation) external onlyRole(DEFAULT_ADMIN_ROLE) {

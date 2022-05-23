@@ -8,6 +8,11 @@ import {IDebtInstrument} from "./IDebtInstrument.sol";
 import {IValuationStrategy} from "./IValuationStrategy.sol";
 
 interface IFlexiblePortfolio is IBasePortfolio {
+    struct ERC20Metadata {
+        string name;
+        string symbol;
+    }
+
     struct Strategies {
         address depositStrategy;
         address withdrawStrategy;
@@ -24,8 +29,7 @@ interface IFlexiblePortfolio is IBasePortfolio {
         Strategies calldata _strategies,
         IDebtInstrument[] calldata _allowedInstruments,
         uint256 _managerFee,
-        string memory _name,
-        string memory _symbol
+        ERC20Metadata calldata tokenMetadata
     ) external;
 
     function fundInstrument(IDebtInstrument loans, uint256 instrumentId) external;
