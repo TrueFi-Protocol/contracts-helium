@@ -64,6 +64,10 @@ abstract contract VoteToken is ERC20, IVoteToken {
         return nCheckpoints > 0 ? checkpoints[account][nCheckpoints - 1].votes : 0;
     }
 
+    function getDelegate(address account) public view returns (address) {
+        return delegates[account] == address(0) ? account : delegates[account];
+    }
+
     /**
      * @dev Get voting power at a specific block for an account
      * @param account Account to get voting power for
@@ -112,8 +116,9 @@ abstract contract VoteToken is ERC20, IVoteToken {
      * @param delegatee Account to delegate votes to
      */
     function _delegate(address delegator, address delegatee) internal {
-        address currentDelegate = delegates[delegator];
-        // OLD: uint96 delegatorBalance = balanceOf(delegator);
+        require(delegatee != address(0), "StkTruToken: cannot delegate to AddressZero");
+        address currentDelegate = getDelegate(delegator);
+
         uint96 delegatorBalance = safe96(_balanceOf(delegator), "StkTruToken: uint96 overflow");
         delegates[delegator] = delegatee;
 
@@ -132,17 +137,17 @@ abstract contract VoteToken is ERC20, IVoteToken {
         uint256 _value
     ) internal virtual override {
         super._transfer(_from, _to, _value);
-        _moveDelegates(delegates[_from], delegates[_to], safe96(_value, "StkTruToken: uint96 overflow"));
+        _moveDelegates(getDelegate(_from), getDelegate(_to), safe96(_value, "StkTruToken: uint96 overflow"));
     }
 
     function _mint(address account, uint256 amount) internal virtual override {
         super._mint(account, amount);
-        _moveDelegates(address(0), delegates[account], safe96(amount, "StkTruToken: uint96 overflow"));
+        _moveDelegates(address(0), getDelegate(account), safe96(amount, "StkTruToken: uint96 overflow"));
     }
 
     function _burn(address account, uint256 amount) internal virtual override {
         super._burn(account, amount);
-        _moveDelegates(delegates[account], address(0), safe96(amount, "StkTruToken: uint96 overflow"));
+        _moveDelegates(getDelegate(account), address(0), safe96(amount, "StkTruToken: uint96 overflow"));
     }
 
     /**

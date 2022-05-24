@@ -535,10 +535,6 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
             cooldown();
         }
 
-        if (delegates[msg.sender] == address(0)) {
-            delegates[msg.sender] = msg.sender;
-        }
-
         uint256 amountToMint = stakeSupply == 0 ? amount : (amount * totalSupply) / stakeSupply;
         _mint(msg.sender, amountToMint);
         stakeSupply = stakeSupply + amount;

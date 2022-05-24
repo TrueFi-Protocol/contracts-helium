@@ -5,7 +5,9 @@ import {VoteToken} from "../VoteToken.sol";
 
 contract MockVoteToken is VoteToken {
     constructor(uint256 _totalSupply) {
-        _mint(msg.sender, _totalSupply);
+        if (_totalSupply > 0) {
+            _mint(msg.sender, _totalSupply);
+        }
     }
 
     function name() public pure virtual override returns (string memory) {
