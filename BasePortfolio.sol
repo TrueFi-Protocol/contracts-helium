@@ -60,6 +60,10 @@ abstract contract BasePortfolio is IBasePortfolio, ERC20Upgradeable, Upgradeable
         _setTransferStrategy(_transferStrategy);
     }
 
+    /* @notice This contract is upgradeable and interacts with settable deposit strategies,
+     * that may change over the contract's lifespan. As a safety measure, we recommend approving
+     * this contract with the desired deposit amount instead of performing infinite allowance.
+     */
     function deposit(uint256 amount, address sender) public virtual onlyRole(DEPOSIT_ROLE) whenNotPaused {
         uint256 sharesToMint = calculateSharesToMint(amount);
         _mint(sender, sharesToMint);

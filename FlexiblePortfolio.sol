@@ -109,6 +109,10 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
         emit InstrumentUpdated(instrument);
     }
 
+    /* @notice This contract is upgradeable and interacts with settable deposit strategies,
+     * that may change over the contract's lifespan. As a safety measure, we recommend approving
+     * this contract with the desired deposit amount instead of performing infinite allowance.
+     */
     function deposit(uint256 amount, address sender) public override(IBasePortfolio, BasePortfolio) whenNotPaused {
         require(getRoleMemberCount(MANAGER_ROLE) == 1, "FlexiblePortfolio: Portfolio has multiple managers");
         require(amount + value() <= maxValue, "FlexiblePortfolio: Portfolio is full");

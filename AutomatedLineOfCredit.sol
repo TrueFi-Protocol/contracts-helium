@@ -113,6 +113,10 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
         emit Repaid(amount);
     }
 
+    /* @notice This contract is upgradeable and interacts with settable deposit strategies,
+     * that may change over the contract's lifespan. As a safety measure, we recommend approving
+     * this contract with the desired deposit amount instead of performing infinite allowance.
+     */
     function deposit(uint256 amount, address sender) public override {
         require(sender != address(this), "AutomatedLineOfCredit: Pool cannot deposit to itself");
         require(block.timestamp < endDate, "AutomatedLineOfCredit: Pool end date has elapsed");
