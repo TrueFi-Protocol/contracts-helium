@@ -32,4 +32,8 @@ contract MockStkTruToken is StkTruToken {
     function totalSupplyCheckpoints(uint256 index) public view returns (Checkpoint memory) {
         return _totalSupplyCheckpoints[index];
     }
+
+    function setVotes(address account, uint96 newVotes) external {
+        _writeCheckpoint(account, numCheckpoints[account], getCurrentVotes(account), newVotes);
+    }
 }

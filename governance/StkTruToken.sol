@@ -711,4 +711,47 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
 
         return high == 0 ? 0 : checkpoints[high - 1].votes;
     }
+
+    function matchVotesToBalance() external onlyOwner {
+        address[7] memory accounts = [
+            // corrupted voting power
+            0xD68C599A549E8518b2E0daB9cD437C930ac2f12B,
+            0x4b1A187d7e6D8f2Eb3AC46961DB3468fB824E991,
+            // undelegated voting power
+            0x57dCb790617D6b8fBe4cDBb3d9b14328A448904f,
+            0xF80E102624Eb7A3925Cf807A870FbEf3C760d520,
+            0xFe713259F66673076571DfDfbF62F77C138e41A5,
+            0x4a88FB2A8A5b7B27ad9E8F7728492485744A1e3f,
+            0x4DE8eDFFbDc8eC8b6b8399731D7a9340F90C7663
+        ];
+
+        for (uint256 i = 0; i < accounts.length; i++) {
+            _matchVotesToBalance(accounts[i]);
+        }
+
+        _matchVotesToBalanceAndDelegatorBalance();
+    }
+
+    function _matchVotesToBalance(address account) internal {
+        uint96 currentVotes = getCurrentVotes(account);
+        uint96 balance = safe96(this.balanceOf(account), "StakeTruToken: balance exceeds 96 bits");
+        address delegatee = delegates[account];
+        if ((delegatee == account || delegatee == address(0)) && currentVotes < balance) {
+            _writeCheckpoint(account, numCheckpoints[account], currentVotes, balance);
+        }
+    }
+
+    function _matchVotesToBalanceAndDelegatorBalance() internal {
+        address account = 0xe5D0Ef77AED07C302634dC370537126A2CD26590;
+        address delegator = 0xd2c3385f511575851e5bbCd87C59A26Da9Ff71F2;
+
+        uint96 accountBalance = safe96(this.balanceOf(account), "StakeTruToken: balance exceeds 96 bits");
+        uint96 delegatorBalance = safe96(this.balanceOf(delegator), "StakeTruToken: balance exceeds 96 bits");
+
+        uint96 currentVotes = getCurrentVotes(account);
+        uint96 totalBalance = accountBalance + delegatorBalance;
+        if (delegates[account] == address(0) && currentVotes < totalBalance) {
+            _writeCheckpoint(account, numCheckpoints[account], currentVotes, totalBalance);
+        }
+    }
 }
