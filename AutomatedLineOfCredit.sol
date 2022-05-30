@@ -107,6 +107,7 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
     }
 
     function _repay(uint256 amount) internal {
+        require(amount > 0, "AutomatedLineOfCredit: Repayment amount must be greater than 0");
         virtualTokenBalance += amount;
         underlyingToken.safeTransferFrom(borrower, address(this), amount);
 
