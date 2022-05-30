@@ -191,6 +191,7 @@ contract AutomatedLineOfCredit is IAutomatedLineOfCredit, BasePortfolio {
     }
 
     function setMaxSize(uint256 _maxSize) external onlyRole(MANAGER_ROLE) {
+        require(_maxSize != maxSize, "AutomatedLineOfCredit: New max size needs to be different");
         maxSize = _maxSize;
         emit MaxSizeChanged(_maxSize);
     }
