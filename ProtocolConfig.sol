@@ -12,7 +12,7 @@ contract ProtocolConfig is Upgradeable, IProtocolConfig {
 
     event ProtocolFeeChanged(uint256 newProtocolFee);
     event ProtocolAddressChanged(address indexed newProtocolAddress);
-    event PauserAddressChanged(address newPauserAddress);
+    event PauserAddressChanged(address indexed newPauserAddress);
     event AutomatedLineOfCreditPremiumFeeChanged(uint256 newFee);
 
     function initialize(
