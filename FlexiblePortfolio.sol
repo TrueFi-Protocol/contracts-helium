@@ -183,6 +183,7 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
     }
 
     function setMaxValue(uint256 _maxValue) external onlyRole(MANAGER_ROLE) {
+        require(_maxValue != maxValue, "FlexiblePortfolio: New max value needs to be different");
         maxValue = _maxValue;
         emit MaxValueChanged(_maxValue);
     }
