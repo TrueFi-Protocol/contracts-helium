@@ -100,8 +100,9 @@ abstract contract BasePortfolio is IBasePortfolio, ERC20Upgradeable, Upgradeable
 
     function _setTransferStrategy(address _transferStrategy) internal {
         address oldTransferStrategy = transferStrategy;
-        transferStrategy = _transferStrategy;
+        require(_transferStrategy != oldTransferStrategy, "BasePortfolio: New protocol address needs to be different");
 
+        transferStrategy = _transferStrategy;
         emit TransferStrategyChanged(oldTransferStrategy, _transferStrategy);
     }
 
