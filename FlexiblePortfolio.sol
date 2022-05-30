@@ -177,6 +177,7 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
     }
 
     function setManagerFee(uint256 newManagerFee) external onlyRole(MANAGER_ROLE) {
+        require(newManagerFee != managerFee, "FlexiblePortfolio: New manager fee needs to be different");
         managerFee = newManagerFee;
         emit ManagerFeeChanged(newManagerFee);
     }
