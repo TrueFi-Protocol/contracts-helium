@@ -41,6 +41,7 @@ contract ProtocolConfig is Upgradeable, IProtocolConfig {
     }
 
     function setPauserAddress(address newPauserAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newPauserAddress != pauserAddress, "ProtocolConfig: New pauser address needs to be different");
         pauserAddress = newPauserAddress;
         emit PauserAddressChanged(newPauserAddress);
     }
