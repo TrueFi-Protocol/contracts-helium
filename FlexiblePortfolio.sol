@@ -162,6 +162,7 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
     }
 
     function setValuationStrategy(IValuationStrategy _valuationStrategy) external onlyRole(MANAGER_ROLE) {
+        require(_valuationStrategy != valuationStrategy, "FlexiblePortfolio: New valuation strategy needs to be different");
         valuationStrategy = _valuationStrategy;
         emit ValuationStrategyChanged(_valuationStrategy);
     }
