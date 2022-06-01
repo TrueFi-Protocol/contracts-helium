@@ -531,7 +531,7 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
     function _stakeWithoutTransfer(uint256 amount) internal {
         require(amount > 0, "StkTruToken: Cannot stake 0");
 
-        if (cooldowns[msg.sender] != 0 && cooldowns[msg.sender] + cooldownTime + unstakePeriodDuration > block.timestamp) {
+        if (cooldowns[msg.sender] != 0 && cooldowns[msg.sender] + cooldownTime + unstakePeriodDuration >= block.timestamp) {
             cooldown();
         }
 
