@@ -95,6 +95,10 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
         uint256 principalAmount = instrument.principal(instrumentId);
         require(principalAmount <= virtualTokenBalance, "FlexiblePortfolio: Insufficient funds in portfolio to fund loan");
         instrument.start(instrumentId);
+        require(
+            instrument.endDate(instrumentId) <= endDate,
+            "FlexiblePortfolio: Cannot fund instrument which end date is after portfolio end date"
+        );
         valuationStrategy.onInstrumentFunded(this, instrument, instrumentId);
         underlyingToken.safeTransfer(borrower, principalAmount);
         virtualTokenBalance -= principalAmount;
