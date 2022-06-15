@@ -48,6 +48,11 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
         uint96 amount;
     }
 
+    enum Operation {
+        Add,
+        Sub
+    }
+
     // ================ WARNING ==================
     // ===== THIS CONTRACT IS INITIALIZABLE ======
     // === STORAGE VARIABLES ARE DECLARED BELOW ==
@@ -186,12 +191,14 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
 
     function _mint(address account, uint256 amount) internal virtual override {
         super._mint(account, amount);
-        _writeTotalSupplyCheckpoint(_add, amount);
+
+        _writeTotalSupplyCheckpoint(Operation.Add, amount);
     }
 
     function _burn(address account, uint256 amount) internal virtual override {
         super._burn(account, amount);
-        _writeTotalSupplyCheckpoint(_subtract, amount);
+
+        _writeTotalSupplyCheckpoint(Operation.Sub, amount);
     }
 
     /**
@@ -655,16 +662,21 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
         sortedScheduledRewardIndices[index] = value;
     }
 
-    function _writeTotalSupplyCheckpoint(function(uint256, uint256) view returns (uint256) op, uint256 delta)
-        internal
-        returns (uint256 oldWeight, uint256 newWeight)
-    {
+    function _writeTotalSupplyCheckpoint(Operation operation, uint256 delta) internal returns (uint256 oldWeight, uint256 newWeight) {
         uint256 checkpointsNumber = _totalSupplyCheckpoints.length;
         require(checkpointsNumber > 0, "StakeTruToken: total supply checkpoints not initialized");
         Checkpoint storage lastCheckpoint = _totalSupplyCheckpoints[checkpointsNumber - 1];
 
         oldWeight = lastCheckpoint.votes;
-        newWeight = op(oldWeight, delta);
+
+        newWeight = oldWeight;
+        if (operation == Operation.Add) {
+            newWeight += delta;
+        } else if (operation == Operation.Sub) {
+            newWeight -= delta;
+        } else {
+            revert("Unsupported Operation");
+        }
 
         if (lastCheckpoint.fromBlock == block.number) {
             lastCheckpoint.votes = SafeCast.toUint96(newWeight);
@@ -673,14 +685,6 @@ contract StkTruToken is VoteToken, StkClaimableContract, IPauseableContract, Ree
                 Checkpoint({fromBlock: SafeCast.toUint32(block.number), votes: SafeCast.toUint96(newWeight)})
             );
         }
-    }
-
-    function _add(uint256 a, uint256 b) private pure returns (uint256) {
-        return a + b;
-    }
-
-    function _subtract(uint256 a, uint256 b) private pure returns (uint256) {
-        return a - b;
     }
 
     /**
