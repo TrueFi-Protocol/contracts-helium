@@ -29,7 +29,7 @@ interface IFlexiblePortfolio is IBasePortfolio {
         Strategies calldata _strategies,
         IDebtInstrument[] calldata _allowedInstruments,
         uint256 _managerFee,
-        ERC20Metadata calldata tokenMetadata
+        ERC20Metadata calldata _tokenMetadata
     ) external;
 
     function fundInstrument(IDebtInstrument loans, uint256 instrumentId) external;

@@ -2,12 +2,13 @@
 pragma solidity ^0.8.10;
 
 import {IFlexiblePortfolio} from "./interfaces/IFlexiblePortfolio.sol";
+import {IPermissionedPortfolio} from "./interfaces/IPermissionedPortfolio.sol";
 import {IERC20WithDecimals} from "./interfaces/IERC20WithDecimals.sol";
 import {IDebtInstrument} from "./interfaces/IDebtInstrument.sol";
 import {IValuationStrategy} from "./interfaces/IValuationStrategy.sol";
 import {BasePortfolioFactory} from "./BasePortfolioFactory.sol";
 
-contract FlexiblePortfolioFactory is BasePortfolioFactory {
+contract PermissionedPortfolioFactory is BasePortfolioFactory {
     function createPortfolio(
         IERC20WithDecimals _underlyingToken,
         uint256 _duration,
@@ -15,10 +16,11 @@ contract FlexiblePortfolioFactory is BasePortfolioFactory {
         IFlexiblePortfolio.Strategies calldata strategies,
         IDebtInstrument[] calldata _allowedInstruments,
         uint256 _managerFee,
-        IFlexiblePortfolio.ERC20Metadata calldata _tokenMetadata
+        IFlexiblePortfolio.ERC20Metadata calldata _tokenMetadata,
+        address _controller
     ) external onlyRole(MANAGER_ROLE) {
         bytes memory initCalldata = abi.encodeWithSelector(
-            IFlexiblePortfolio.initialize.selector,
+            IPermissionedPortfolio.initialize.selector,
             protocolConfig,
             _duration,
             _underlyingToken,
@@ -27,7 +29,8 @@ contract FlexiblePortfolioFactory is BasePortfolioFactory {
             strategies,
             _allowedInstruments,
             _managerFee,
-            _tokenMetadata
+            _tokenMetadata,
+            _controller
         );
         _deployPortfolio(initCalldata);
     }
