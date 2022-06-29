@@ -114,7 +114,7 @@ abstract contract BasePortfolio is IBasePortfolio, ERC20Upgradeable, Upgradeable
         if (transferStrategy != address(0)) {
             require(
                 ITransferStrategy(transferStrategy).canTransfer(sender, recipient, amount),
-                "BasePortfolio: Transfer not permitted"
+                "BasePortfolio: This transfer not permitted"
             );
         }
         super._transfer(sender, recipient, amount);
