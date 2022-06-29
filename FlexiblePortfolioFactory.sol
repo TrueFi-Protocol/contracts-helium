@@ -15,7 +15,7 @@ contract FlexiblePortfolioFactory is BasePortfolioFactory {
         IFlexiblePortfolio.Strategies calldata strategies,
         IDebtInstrument[] calldata _allowedInstruments,
         uint256 _managerFee,
-        IFlexiblePortfolio.ERC20Metadata calldata _tokenMetadata
+        IFlexiblePortfolio.ERC20Metadata calldata tokenMetadata
     ) external onlyRole(MANAGER_ROLE) {
         bytes memory initCalldata = abi.encodeWithSelector(
             IFlexiblePortfolio.initialize.selector,
@@ -27,7 +27,7 @@ contract FlexiblePortfolioFactory is BasePortfolioFactory {
             strategies,
             _allowedInstruments,
             _managerFee,
-            _tokenMetadata
+            tokenMetadata
         );
         _deployPortfolio(initCalldata);
     }

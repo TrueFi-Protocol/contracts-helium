@@ -46,34 +46,10 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
         Strategies calldata _strategies,
         IDebtInstrument[] calldata _allowedInstruments,
         uint256 _managerFee,
-        ERC20Metadata calldata _tokenMetadata
+        ERC20Metadata calldata tokenMetadata
     ) external initializer {
-        __FlexiblePortfolio_init(
-            _protocolConfig,
-            _duration,
-            _underlyingToken,
-            _manager,
-            _maxValue,
-            _strategies,
-            _allowedInstruments,
-            _managerFee,
-            _tokenMetadata
-        );
-    }
-
-    function __FlexiblePortfolio_init(
-        IProtocolConfig _protocolConfig,
-        uint256 _duration,
-        IERC20 _underlyingToken,
-        address _manager,
-        uint256 _maxValue,
-        Strategies calldata _strategies,
-        IDebtInstrument[] calldata _allowedInstruments,
-        uint256 _managerFee,
-        ERC20Metadata calldata _tokenMetadata
-    ) internal initializer {
         __BasePortfolio_init(_protocolConfig, _duration, _underlyingToken, _manager, _managerFee);
-        __ERC20_init(_tokenMetadata.name, _tokenMetadata.symbol);
+        __ERC20_init(tokenMetadata.name, tokenMetadata.symbol);
         maxValue = _maxValue;
 
         _grantRole(DEPOSIT_ROLE, _strategies.depositStrategy);
