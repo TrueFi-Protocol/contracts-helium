@@ -120,6 +120,7 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
     function deposit(uint256 amount, address sender) public override(IBasePortfolio, BasePortfolio) whenNotPaused {
         require(getRoleMemberCount(MANAGER_ROLE) == 1, "FlexiblePortfolio: Portfolio has multiple managers");
         require(amount + value() <= maxValue, "FlexiblePortfolio: Portfolio is full");
+        require(block.timestamp < endDate, "FlexiblePortfolio: Portfolio end date has elapsed");
 
         uint256 managersPart = (amount * managerFee) / BASIS_PRECISION;
         uint256 protocolsPart = (amount * protocolConfig.protocolFee()) / BASIS_PRECISION;
