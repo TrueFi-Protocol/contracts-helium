@@ -149,10 +149,11 @@ contract FlexiblePortfolio is IFlexiblePortfolio, BasePortfolio {
     ) external whenNotPaused {
         require(amount > 0, "FlexiblePortfolio: Repayment amount must be greater than 0");
         require(instrument.recipient(instrumentId) == msg.sender, "FlexiblePortfolio: Not an instrument recipient");
+        require(isInstrumentAdded[instrument][instrumentId], "FlexiblePortfolio: Cannot repay not added instrument");
         instrument.repay(instrumentId, amount);
         valuationStrategy.onInstrumentUpdated(this, instrument, instrumentId);
 
-        instrument.underlyingToken(instrumentId).safeTransferFrom(msg.sender, address(this), amount);
+        underlyingToken.safeTransferFrom(msg.sender, address(this), amount);
         virtualTokenBalance += amount;
         emit InstrumentRepaid(instrument, instrumentId, amount);
     }
